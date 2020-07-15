@@ -3,16 +3,17 @@ package main
 import (
 	"log"
 
+	"github.com/boltdb/bolt"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
-	"github.com/nebser/crypto-vote/internal/pkg/repository"
 )
 
 func main() {
-	repository, err := repository.New("db")
+	db, err := bolt.Open("db", 0600, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	blockchain, err := blockchain.NewBlockchain(repository.GetTip, repository.InitBlockchain)
+	defer db.Close()
+	blockchain, err := blockchain.NewBlockchain(db)()
 	if err != nil {
 		log.Fatal(err)
 	}
