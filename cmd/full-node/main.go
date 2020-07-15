@@ -13,7 +13,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	blockchain, err := blockchain.NewBlockchain(db)()
+	blockchain, err := blockchain.GetBlockchain(db)()
 	if err != nil {
 		log.Fatal(err)
 	}

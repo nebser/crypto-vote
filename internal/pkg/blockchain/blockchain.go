@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"github.com/boltdb/bolt"
+	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/pkg/errors"
 )
 
@@ -16,29 +17,40 @@ type Blockchain struct {
 
 type GetBlockchainFn func() (*Blockchain, error)
 
-func NewBlockchain(db *bolt.DB) GetBlockchainFn {
+type AddBlockFn func(Blockchain, Block) (*Blockchain, error)
+
+func GetBlockchain(db *bolt.DB) GetBlockchainFn {
 	return func() (*Blockchain, error) {
 		tip := getTip(db)
 		if tip != nil {
 			return &Blockchain{Tip: tip}, nil
 		}
-		genesis := Block{
-			Metadata: Metadata{
-				MagicNumber: magicNumber,
-			},
-			Header: Header{
-				Version:         version,
-				TransactionHash: []byte("hash"),
-			},
-			Body: Body{
-				TransactionsCount: 1,
-				Transactions:      []string{"transaction"},
+		txs := transaction.Transactions{
+			transaction.Transaction{
+				Outputs: []transaction.Output{
+					transaction.Output{Value: 0},
+				},
 			},
 		}
-		tip, err := initBlockchain(db, genesis)
+		genesis, err := NewBlock(nil, txs)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to create genesis block")
+		}
+		tip, err = initBlockchain(db, *genesis)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to initialize blockchain")
 		}
 		return &Blockchain{Tip: tip}, nil
+	}
+}
+
+func AddBlock(db *bolt.DB) AddBlockFn {
+	return func(blockchain Blockchain, block Block) (*Blockchain, error) {
+		tip, err := addBlock(db, block)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to add block to db")
+		}
+		blockchain.Tip = tip
+		return &blockchain, nil
 	}
 }
