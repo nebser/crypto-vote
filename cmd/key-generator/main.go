@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"log"
 	"os"
 	"strconv"
 
@@ -11,31 +11,30 @@ import (
 
 func main() {
 	wallets := wallet.Wallets{}
-	num := 50
+	num := 10
 	if len(os.Args) > 1 {
 		parsed, err := strconv.Atoi(os.Args[1])
 		if err != nil {
-			fmt.Println("Argument must be an integer")
-			os.Exit(1)
+			log.Fatal("Argument must be an integer")
 		}
 		num = parsed
 	}
 	for i := 0; i < num; i++ {
 		w, err := wallet.New()
 		if err != nil {
-			fmt.Println(err)
-			return
+			log.Fatal(err)
 		}
 		wallets = append(wallets, *w)
 	}
-	serlialized, err := wallets.Serialized()
+	for i, w := range wallets {
+		if err := w.Export(fmt.Sprintf("wallets/w%d", i)); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	w, err := wallet.Import("wallets/w0_pub.pem", "wallets/w0.pem")
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
-	if err := ioutil.WriteFile("wallets.json", serlialized, 0644); err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println("SUCCESS")
+	log.Println(w.Address)
 }

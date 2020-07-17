@@ -2,7 +2,6 @@ package blockchain
 
 import (
 	"github.com/boltdb/bolt"
-	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/pkg/errors"
 )
 
@@ -17,26 +16,23 @@ type Blockchain struct {
 
 type GetBlockchainFn func() (*Blockchain, error)
 
+type InitBlockchainFn func(Block) (*Blockchain, error)
+
 type AddBlockFn func(Blockchain, Block) (*Blockchain, error)
 
 func GetBlockchain(db *bolt.DB) GetBlockchainFn {
 	return func() (*Blockchain, error) {
 		tip := getTip(db)
-		if tip != nil {
-			return &Blockchain{Tip: tip}, nil
+		if tip == nil {
+			return nil, nil
 		}
-		txs := transaction.Transactions{
-			transaction.Transaction{
-				Outputs: []transaction.Output{
-					transaction.Output{Value: 0},
-				},
-			},
-		}
-		genesis, err := NewBlock(nil, txs)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to create genesis block")
-		}
-		tip, err = initBlockchain(db, *genesis)
+		return &Blockchain{Tip: tip}, nil
+	}
+}
+
+func InitBlockchain(db *bolt.DB) InitBlockchainFn {
+	return func(genesis Block) (*Blockchain, error) {
+		tip, err := initBlockchain(db, genesis)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to initialize blockchain")
 		}

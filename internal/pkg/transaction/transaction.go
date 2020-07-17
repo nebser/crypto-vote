@@ -4,34 +4,39 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 
+	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/pkg/errors"
 )
 
 type Transaction struct {
-	ID      []byte   `json:"id"`
-	Inputs  []Input  `json:"inputs"`
-	Outputs []Output `json:"outputs"`
+	ID      []byte  `json:"id"`
+	Inputs  Inputs  `json:"inputs"`
+	Outputs Outputs `json:"outputs"`
 }
 
 type hashable struct {
-	Inputs  []Input  `json:"inputs"`
-	Outputs []Output `json:"outputs"`
+	Inputs  Inputs  `json:"inputs"`
+	Outputs Outputs `json:"outputs"`
 }
 
-func newID(inputs []Input, outputs []Output) ([]byte, error) {
+func newID(inputs Inputs, outputs Outputs) ([]byte, error) {
 	hashable := hashable{
 		Inputs:  inputs,
 		Outputs: outputs,
 	}
-	raw, err := json.Marshal(hashable)
+	return hash(hashable)
+}
+
+func hash(data interface{}) ([]byte, error) {
+	raw, err := json.Marshal(data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to serialize input %#v and output %#v", inputs, outputs)
+		return nil, errors.Wrapf(err, "Failed to serialize data %#v", data)
 	}
 	hash := sha256.Sum256(raw)
 	return hash[:], nil
 }
 
-func NewTransaction(inputs []Input, outputs []Output) (*Transaction, error) {
+func NewTransaction(inputs Inputs, outputs Outputs) (*Transaction, error) {
 	id, err := newID(inputs, outputs)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create id")
@@ -43,16 +48,43 @@ func NewTransaction(inputs []Input, outputs []Output) (*Transaction, error) {
 	}, nil
 }
 
-type Input struct {
-	TransactionID []byte
-	Vout          int
-	PublicKey     []byte
-	Signature     []byte
+func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transaction, error) {
+	recipientKeyHash := wallet.ExtractPublicKeyHash(recipientAddress)
+	signable := signable{
+		Recipient: recipientKeyHash,
+		Sender:    creator.PublicKeyHash(),
+		Value:     1,
+	}
+	signature, err := sign(signable, creator.PrivateKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to sign base transaction")
+	}
+	outputs := Outputs{
+		{
+			Value:         1,
+			PublicKeyHash: recipientKeyHash,
+		},
+	}
+	inputs := Inputs{
+		{
+			Vout:      -1,
+			PublicKey: creator.PublicKey,
+			Signature: signature,
+		},
+	}
+	id, err := newID(inputs, outputs)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create transaction id")
+	}
+	return &Transaction{
+		ID:      id,
+		Inputs:  inputs,
+		Outputs: outputs,
+	}, nil
 }
 
-type Output struct {
-	Value         int
-	PublicKeyHash []byte
+func (t Transaction) IsBase() bool {
+	return len(t.Inputs) == 1 && len(t.Outputs) == 1 && t.Inputs[0].Vout == -1
 }
 
 type Transactions []Transaction

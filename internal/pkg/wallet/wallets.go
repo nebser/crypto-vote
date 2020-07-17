@@ -21,3 +21,10 @@ func (ws Wallets) Serialized() (json.RawMessage, error) {
 	}
 	return json.Marshal(dumpables)
 }
+
+func (ws Wallets) Addresses() (addresses []string) {
+	for _, w := range ws {
+		addresses = append(addresses, w.Address)
+	}
+	return
+}
