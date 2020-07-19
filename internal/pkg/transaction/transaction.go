@@ -3,6 +3,8 @@ package transaction
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/pkg/errors"
@@ -12,6 +14,22 @@ type Transaction struct {
 	ID      []byte  `json:"id"`
 	Inputs  Inputs  `json:"inputs"`
 	Outputs Outputs `json:"outputs"`
+}
+
+func (tx Transaction) String() string {
+	builder := strings.Builder{}
+	builder.WriteString(fmt.Sprintf("ID: %x\n", tx.ID))
+	builder.WriteString("Inputs:\n")
+	for _, in := range tx.Inputs {
+		builder.WriteString(fmt.Sprintf("\tFrom: %x\n", in.PublicKey))
+		builder.WriteString(fmt.Sprintf("\tSignature: %x\n", in.Signature))
+	}
+	builder.WriteString("Outputs:\n")
+	for _, out := range tx.Outputs {
+		builder.WriteString(fmt.Sprintf("\tTo: %x\n", out.PublicKeyHash))
+		builder.WriteString(fmt.Sprintf("\tValue: %d\n", out.Value))
+	}
+	return builder.String()
 }
 
 type hashable struct {
@@ -96,4 +114,14 @@ func (txs Transactions) Hash() []byte {
 	}
 	hash := sha256.Sum256(result)
 	return hash[:]
+}
+
+func (txs Transactions) String() string {
+	builder := strings.Builder{}
+	builder.WriteString("-----START TRANSACTIONS-----\n")
+	for _, tx := range txs {
+		builder.WriteString(tx.String())
+	}
+	builder.WriteString("-----END TRANSACTIONS-----\n")
+	return builder.String()
 }

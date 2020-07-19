@@ -95,7 +95,7 @@ func Initialize(blockchain _blockchain.Blockchain, options Options) (_blockchain
 		}
 		baseTransactions = append(baseTransactions, *t)
 	}
-	block, err := _blockchain.NewBlock(blockchain.Tip, baseTransactions)
+	block, err := _blockchain.NewBlock(initialized.Tip, baseTransactions)
 	if err != nil {
 		return _blockchain.Blockchain{}, errors.Wrap(err, "Failed to create block of base transactions")
 	}

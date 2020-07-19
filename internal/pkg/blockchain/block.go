@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nebser/crypto-vote/internal/pkg/transaction"
@@ -32,6 +34,19 @@ type Block struct {
 	Metadata Metadata
 	Header   Header
 	Body     Body
+}
+
+func (b Block) String() string {
+	builder := strings.Builder{}
+	builder.WriteString("-----BEGIN BLOCK-----\n")
+	builder.WriteString(fmt.Sprintf("Hash: %x\n", b.Header.Hash))
+	t := time.Unix(b.Header.Timestamp, 0)
+	builder.WriteString("Timestamp: ")
+	builder.WriteString(t.Format(time.RFC3339))
+	builder.WriteString(fmt.Sprintf("\nPrev: %x\n", b.Header.Prev))
+	builder.WriteString(b.Body.Transactions.String())
+	builder.WriteString("-----END BLOCK-----\n")
+	return builder.String()
 }
 
 func NewBlock(previousBlock []byte, transactions transaction.Transactions) (*Block, error) {

@@ -81,3 +81,27 @@ func AddBlock(db *bolt.DB) blockchain.AddBlockFn {
 		return tip, err
 	}
 }
+
+func GetBlock(db *bolt.DB) blockchain.GetBlockFn {
+	return func(hash []byte) (*blockchain.Block, error) {
+		var result *blockchain.Block
+		err := db.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket(blocksBucket())
+			if b == nil {
+				return errors.New("Blocks bucket does not exist")
+			}
+			rawBlock := b.Get(hash)
+			if rawBlock == nil {
+				return nil
+			}
+			var serialized block
+			if err := json.Unmarshal(rawBlock, &serialized); err != nil {
+				return errors.Wrapf(err, "Failed to unmarshal serialized block %s", rawBlock)
+			}
+			bl := serialized.toBlock()
+			result = &bl
+			return nil
+		})
+		return result, err
+	}
+}

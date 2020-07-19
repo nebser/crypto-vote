@@ -40,6 +40,7 @@ func main() {
 		repository.GetTip(db),
 		repository.InitBlockchain(db),
 		repository.AddBlock(db),
+		repository.GetBlock(db),
 	)
 	if *newOption {
 		blockchain, err = alfa.Initialize(blockchain, options)
@@ -47,5 +48,5 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	log.Printf("Blockchain %#v", blockchain)
+	blockchain.Print()
 }
