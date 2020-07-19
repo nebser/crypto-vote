@@ -14,7 +14,6 @@ import (
 )
 
 type Options struct {
-	New                bool
 	PrivateKeyFileName string
 	PublicKeyFileName  string
 	ClientKeysDir      string
@@ -67,9 +66,6 @@ func Initialize(blockchain _blockchain.Blockchain, options Options) (_blockchain
 	})
 	if err != nil {
 		return _blockchain.Blockchain{}, errors.Wrap(err, "Failed to import keys")
-	}
-	if !options.New {
-		return _blockchain.Blockchain{}, nil
 	}
 	genesisTransaction, err := transaction.NewBaseTransaction(*masterWallet, masterWallet.Address)
 	if err != nil {

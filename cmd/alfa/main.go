@@ -20,12 +20,11 @@ func main() {
 
 	flag.Parse()
 	options := alfa.Options{
-		New:                *newOption,
 		PublicKeyFileName:  *publicKeyOption,
 		PrivateKeyFileName: *privateKeyOption,
 		ClientKeysDir:      *clientKeysDirOption,
 	}
-	if options.New {
+	if *newOption {
 		if err := os.Remove(*dbFileName); err != nil {
 			log.Fatalf("Failed to remove file %s", *dbFileName)
 		}
@@ -35,9 +34,12 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	blockchain, err := alfa.Initialize(blockchain.NewBlockchain(db), options)
-	if err != nil {
-		log.Fatal(err)
+	blockchain := blockchain.NewBlockchain(db)
+	if *newOption {
+		blockchain, err = alfa.Initialize(blockchain, options)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	log.Printf("Blockchain %#v", blockchain)
 }
