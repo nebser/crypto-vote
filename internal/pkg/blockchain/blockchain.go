@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 )
 
@@ -10,34 +9,43 @@ const (
 	version     = 0
 )
 
+type GetTipFn func() []byte
+
+type InitBlockchainFn func(Block) ([]byte, error)
+
+type AddBlockFn func(Block) ([]byte, error)
+
 type Blockchain struct {
-	db  *bolt.DB
-	Tip []byte
+	getTip         GetTipFn
+	initBlockchain InitBlockchainFn
+	addBlock       AddBlockFn
+	Tip            []byte
 }
 
-func NewBlockchain(db *bolt.DB) Blockchain {
-	tip := getTip(db)
-	return Blockchain{Tip: tip, db: db}
+func NewBlockchain(getTip GetTipFn, initBlockchain InitBlockchainFn, addBlock AddBlockFn) Blockchain {
+	tip := getTip()
+	return Blockchain{
+		Tip:            tip,
+		getTip:         getTip,
+		initBlockchain: initBlockchain,
+		addBlock:       addBlock,
+	}
 }
 
 func (b Blockchain) SetGenesis(genesis Block) (Blockchain, error) {
-	tip, err := initBlockchain(b.db, genesis)
+	tip, err := b.initBlockchain(genesis)
 	if err != nil {
 		return b, errors.Wrap(err, "Failed to initialize blockchain")
 	}
-	return Blockchain{
-		Tip: tip,
-		db:  b.db,
-	}, nil
+	b.Tip = tip
+	return b, nil
 }
 
 func (b Blockchain) AddBlock(block Block) (Blockchain, error) {
-	tip, err := addBlock(b.db, block)
+	tip, err := b.addBlock(block)
 	if err != nil {
 		return Blockchain{}, errors.Wrap(err, "Failed to add block")
 	}
-	return Blockchain{
-		Tip: tip,
-		db:  b.db,
-	}, nil
+	b.Tip = tip
+	return b, nil
 }

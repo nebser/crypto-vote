@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/nebser/crypto-vote/internal/pkg/repository"
+
 	"github.com/nebser/crypto-vote/internal/apps/alfa"
 
 	"github.com/boltdb/bolt"
@@ -34,7 +36,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	blockchain := blockchain.NewBlockchain(db)
+	blockchain := blockchain.NewBlockchain(
+		repository.GetTip(db),
+		repository.InitBlockchain(db),
+		repository.AddBlock(db),
+	)
 	if *newOption {
 		blockchain, err = alfa.Initialize(blockchain, options)
 		if err != nil {
