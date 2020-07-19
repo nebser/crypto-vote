@@ -1,6 +1,7 @@
 package alfa
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -26,19 +27,24 @@ func getKeyFiles(keyDirectory string) (keyfiles.KeyFilesList, error) {
 		return nil, errors.Wrapf(err, "Failed to read key file directory %s", keyDirectory)
 	}
 
-	fileNames := []string{}
+	fileGroups := map[string]keyfiles.KeyFiles{}
 	for _, f := range files {
-		if !strings.Contains(f.Name(), "address") {
-			fileNames = append(fileNames, f.Name())
+		if strings.Contains(f.Name(), "address") {
+			continue
 		}
+		name := strings.Replace(f.Name(), "_pub", "", 1)
+		group := fileGroups[name]
+		if strings.Contains(f.Name(), "pub") {
+			group.PublicKeyFile = fmt.Sprintf("%s/%s", keyDirectory, f.Name())
+		} else {
+			group.PrivateKeyFile = fmt.Sprintf("%s/%s", keyDirectory, f.Name())
+		}
+		fileGroups[name] = group
 	}
 
 	result := keyfiles.KeyFilesList{}
-	for i := 0; i < len(fileNames); i += 2 {
-		result = append(result, keyfiles.KeyFiles{
-			PrivateKeyFile: fileNames[i],
-			PublicKeyFile:  fileNames[i+1],
-		})
+	for _, keyFiles := range fileGroups {
+		result = append(result, keyFiles)
 	}
 	return result, nil
 }
