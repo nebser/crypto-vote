@@ -36,14 +36,17 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	blockchain := blockchain.NewBlockchain(
+	blockchain, err := blockchain.NewBlockchain(
 		repository.GetTip(db),
 		repository.InitBlockchain(db),
 		repository.AddBlock(db),
 		repository.GetBlock(db),
 	)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if *newOption {
-		blockchain, err = alfa.Initialize(blockchain, options)
+		*blockchain, err = alfa.Initialize(*blockchain, options)
 		if err != nil {
 			log.Fatal(err)
 		}
