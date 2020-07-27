@@ -8,6 +8,7 @@ import (
 
 const (
 	GetBlockchainHeightCommand CommandType = "get-blockchain-height"
+	CloseConnectionCommand     CommandType = "close-connection"
 )
 
 type CommandType string
@@ -31,4 +32,5 @@ type Command struct {
 	Type      CommandType     `json:"type"`
 	Body      json.RawMessage `json:"body"`
 	Signature string          `json:"signature"`
+	Sender    string          `json:"sender"`
 }

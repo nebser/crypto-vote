@@ -3,11 +3,9 @@ package alfa
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"strings"
 
 	"github.com/nebser/crypto-vote/internal/pkg/transaction"
-	_websocket "github.com/nebser/crypto-vote/internal/pkg/websocket"
 
 	_blockchain "github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/keyfiles"
@@ -102,24 +100,4 @@ func Initialize(blockchain _blockchain.Blockchain, options Options) error {
 	}
 	return blockchain.AddBlock(*block)
 
-}
-
-func Handler(b _blockchain.Blockchain) _websocket.Handler {
-	return func(resp http.ResponseWriter, request *http.Request) error {
-		// upgrader := websocket.Upgrader{}
-		// conn, err := upgrader.Upgrade(resp, request, nil)
-		// if err != nil {
-		// 	return errors.Wrap(err, "Failed to open websocket")
-		// }
-		// defer conn.Close()
-
-		// for {
-		// 	var command _websocket.Command
-		// 	if err := conn.ReadJSON(&command); err != nil {
-		// 		return errors.Wrap(err, "Failed to parse json into command structure")
-		// 	}
-
-		// }
-		return nil
-	}
 }

@@ -1,14 +1,15 @@
 package websocket
 
-import (
-	"log"
-	"net/http"
-)
+import "encoding/json"
 
-type Handler func(resp http.ResponseWriter, request *http.Request) error
+type Handler func(payload json.RawMessage) (Response, error)
 
-func (h Handler) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
-	if err := h(resp, request); err != nil {
-		log.Printf("Error occurred %s\n", err)
+type Router map[CommandType]Handler
+
+func (r Router) Route(c Command) (Response, error) {
+	handler, ok := r[c.Type]
+	if !ok {
+		return Response{Error: NewInvalidCommandError(c.Type)}, nil
 	}
+	return handler(c.Body)
 }

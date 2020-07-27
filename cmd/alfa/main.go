@@ -8,8 +8,10 @@ import (
 	"os"
 
 	"github.com/nebser/crypto-vote/internal/pkg/repository"
+	"github.com/nebser/crypto-vote/internal/pkg/websocket"
 
 	"github.com/nebser/crypto-vote/internal/apps/alfa"
+	"github.com/nebser/crypto-vote/internal/apps/alfa/handlers"
 
 	"github.com/boltdb/bolt"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
@@ -54,5 +56,8 @@ func main() {
 		log.Fatalf("Failed to start tcp server %s", err)
 	}
 	blockchain.Print()
-	http.Serve(listener, alfa.Handler(*blockchain))
+	router := websocket.Router{
+		websocket.GetBlockchainHeightCommand: handlers.GetHeightHandler(*blockchain),
+	}
+	http.Serve(listener, alfa.Connection(router))
 }
