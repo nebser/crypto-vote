@@ -24,13 +24,10 @@ type Blockchain struct {
 	initBlockchain InitBlockchainFn
 	addBlock       AddBlockFn
 	getBlock       GetBlockFn
-	Tip            []byte
 }
 
 func NewBlockchain(getTip GetTipFn, initBlockchain InitBlockchainFn, addBlock AddBlockFn, getBlock GetBlockFn) *Blockchain {
-	tip := getTip()
 	return &Blockchain{
-		Tip:            tip,
 		getTip:         getTip,
 		initBlockchain: initBlockchain,
 		addBlock:       addBlock,
@@ -51,22 +48,22 @@ func (b Blockchain) GetHeight() (int, error) {
 	return result, nil
 }
 
-func (b Blockchain) SetGenesis(genesis Block) (Blockchain, error) {
-	tip, err := b.initBlockchain(genesis)
-	if err != nil {
-		return b, errors.Wrap(err, "Failed to initialize blockchain")
-	}
-	b.Tip = tip
-	return b, nil
+func (b Blockchain) GetTip() []byte {
+	return b.getTip()
 }
 
-func (b Blockchain) AddBlock(block Block) (Blockchain, error) {
-	tip, err := b.addBlock(block)
-	if err != nil {
-		return Blockchain{}, errors.Wrap(err, "Failed to add block")
+func (b Blockchain) SetGenesis(genesis Block) error {
+	if _, err := b.initBlockchain(genesis); err != nil {
+		return errors.Wrap(err, "Failed to initialize blockchain")
 	}
-	b.Tip = tip
-	return b, nil
+	return nil
+}
+
+func (b Blockchain) AddBlock(block Block) error {
+	if _, err := b.addBlock(block); err != nil {
+		return errors.Wrap(err, "Failed to add block")
+	}
+	return nil
 }
 
 func (b Blockchain) GetBlock(hash []byte) (*Block, error) {
@@ -79,7 +76,7 @@ func (b Blockchain) Print() error {
 		return errors.Wrap(err, "Failed to fetch height")
 	}
 	fmt.Printf("Block height: %d\n", height)
-	return printOne(b.Tip, b)
+	return printOne(b.GetTip(), b)
 }
 
 func printOne(hash []byte, chain Blockchain) error {

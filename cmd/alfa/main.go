@@ -45,8 +45,7 @@ func main() {
 		repository.GetBlock(db),
 	)
 	if *newOption {
-		*blockchain, err = alfa.Initialize(*blockchain, options)
-		if err != nil {
+		if err := alfa.Initialize(*blockchain, options); err != nil {
 			log.Fatal(err)
 		}
 	}
