@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"log"
+	"net"
+	"net/http"
 	"os"
 
 	"github.com/nebser/crypto-vote/internal/pkg/repository"
@@ -36,20 +38,22 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	blockchain, err := blockchain.NewBlockchain(
+	blockchain := blockchain.NewBlockchain(
 		repository.GetTip(db),
 		repository.InitBlockchain(db),
 		repository.AddBlock(db),
 		repository.GetBlock(db),
 	)
-	if err != nil {
-		log.Fatal(err)
-	}
 	if *newOption {
 		*blockchain, err = alfa.Initialize(*blockchain, options)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
+	listener, err := net.Listen("tcp", ":10000")
+	if err != nil {
+		log.Fatalf("Failed to start tcp server %s", err)
+	}
 	blockchain.Print()
+	http.Serve(listener, alfa.Handler(*blockchain))
 }
