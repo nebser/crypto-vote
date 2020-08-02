@@ -19,7 +19,7 @@ func GetHeightHandler(blockchain blockchain.Blockchain) websocket.Handler {
 			return websocket.Response{}, errors.Wrap(err, "Failed to get height")
 		}
 		return websocket.Response{
-			Data: getHeightResponse{Height: height},
+			Result: getHeightResponse{Height: height},
 		}, nil
 	}
 }

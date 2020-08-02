@@ -2,25 +2,37 @@ package websocket
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 )
 
 const (
-	GetBlockchainHeightCommand CommandType = "get-blockchain-height"
-	CloseConnectionCommand     CommandType = "close-connection"
+	GetBlockchainHeightCommand CommandType = iota + 1
+	CloseConnectionCommand
 )
 
-type CommandType string
+type CommandType int
+
+func (c CommandType) String() string {
+	switch c {
+	case GetBlockchainHeightCommand:
+		return "get-blockchain-height"
+	case CloseConnectionCommand:
+		return "close-connection"
+	default:
+		return fmt.Sprintf("Unknown command %d", c)
+	}
+}
 
 func (c *CommandType) UnmarshalJSON(b []byte) error {
-	var help string
+	var help int
 	if err := json.Unmarshal(b, &help); err != nil {
 		return errors.Wrapf(err, "Failed to unmarshal %s into command type", b)
 	}
 	command := CommandType(help)
 	switch command {
-	case GetBlockchainHeightCommand:
+	case GetBlockchainHeightCommand, CloseConnectionCommand:
 		*c = command
 		return nil
 	default:

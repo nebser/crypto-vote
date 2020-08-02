@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"net"
 	"net/http"
 	"os"
 
@@ -51,13 +50,14 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	listener, err := net.Listen("tcp", ":10000")
-	if err != nil {
-		log.Fatalf("Failed to start tcp server %s", err)
-	}
+	// listener, err := net.Listen("tcp", ":10000")
+	// if err != nil {
+	// 	log.Fatalf("Failed to start tcp server %s", err)
+	// }
 	blockchain.Print()
 	router := websocket.Router{
 		websocket.GetBlockchainHeightCommand: handlers.GetHeightHandler(*blockchain),
 	}
-	http.Serve(listener, alfa.Connection(router))
+	http.Handle("/", alfa.Connection(router))
+	http.ListenAndServe(":10000", nil)
 }

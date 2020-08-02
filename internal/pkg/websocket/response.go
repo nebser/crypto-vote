@@ -1,6 +1,6 @@
 package websocket
 
 type Response struct {
-	Data  interface{} `json:"data"`
-	Error *Error      `json:"error"`
+	Result interface{} `json:"result"`
+	Error  *Error      `json:"error"`
 }
