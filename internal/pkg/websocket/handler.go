@@ -11,5 +11,9 @@ func (r Router) Route(c Command) (Response, error) {
 	if !ok {
 		return Response{Error: NewInvalidCommandError(c.Type)}, nil
 	}
-	return handler(c.Body)
+	result, err := handler(c.Body)
+	if err != nil {
+		return Response{Error: NewUnknownError()}, nil
+	}
+	return result, nil
 }

@@ -8,15 +8,6 @@ import (
 	_websocket "github.com/nebser/crypto-vote/internal/pkg/websocket"
 )
 
-type response struct {
-	Result Result            `json:"result"`
-	Error  *_websocket.Error `json:"error"`
-}
-
-type Result struct {
-	Height int `json:"height"`
-}
-
 func main() {
 	u := url.URL{
 		Scheme: "ws",
@@ -30,15 +21,17 @@ func main() {
 	}
 	defer conn.Close()
 
-	payload := _websocket.Command{
-		Type: _websocket.GetBlockchainHeightCommand,
+	height, err := _websocket.GetHeight(conn)()
+	if err != nil {
+		log.Fatalf("Fatal error occurred %s\n", err)
 	}
-	if err := conn.WriteJSON(payload); err != nil {
-		log.Fatal(err)
+	log.Printf("Received height %d\n", height)
+	blocks, err := _websocket.GetMissingBlocks(conn)(nil)
+	if err != nil {
+		log.Fatalf("Fatal error occurred %s\n", err)
 	}
-	var r response
-	if err := conn.ReadJSON(&r); err != nil {
-		log.Fatal(err)
+	log.Println("Received blocks")
+	for _, b := range blocks {
+		log.Printf("Block %x", b)
 	}
-	log.Printf("Received %#v\n", r)
 }
