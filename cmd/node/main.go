@@ -31,7 +31,13 @@ func main() {
 		log.Fatalf("Fatal error occurred %s\n", err)
 	}
 	log.Println("Received blocks")
+	getBlock := operations.GetBlock(conn)
 	for _, b := range blocks {
-		log.Printf("Block %x", b)
+		block, err := getBlock(b)
+		if err != nil {
+			log.Printf("Error occurred %s\n", err)
+		} else {
+			log.Printf("Block found %s", block)
+		}
 	}
 }

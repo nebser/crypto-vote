@@ -54,6 +54,7 @@ func main() {
 	router := websocket.Router{
 		websocket.GetBlockchainHeightCommand: handlers.GetHeightHandler(*blockchain),
 		websocket.GetMissingBlocksCommand:    handlers.GetMissingBlocks(*blockchain),
+		websocket.GetBlockCommand:            handlers.GetBlock(*blockchain),
 	}
 	http.Handle("/", alfa.Connection(router))
 	http.ListenAndServe(":10000", nil)
