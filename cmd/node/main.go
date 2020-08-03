@@ -5,7 +5,7 @@ import (
 	"net/url"
 
 	"github.com/gorilla/websocket"
-	_websocket "github.com/nebser/crypto-vote/internal/pkg/websocket"
+	"github.com/nebser/crypto-vote/internal/pkg/operations"
 )
 
 func main() {
@@ -21,12 +21,12 @@ func main() {
 	}
 	defer conn.Close()
 
-	height, err := _websocket.GetHeight(conn)()
+	height, err := operations.GetHeight(conn)()
 	if err != nil {
 		log.Fatalf("Fatal error occurred %s\n", err)
 	}
 	log.Printf("Received height %d\n", height)
-	blocks, err := _websocket.GetMissingBlocks(conn)(nil)
+	blocks, err := operations.GetMissingBlocks(conn)(nil)
 	if err != nil {
 		log.Fatalf("Fatal error occurred %s\n", err)
 	}
