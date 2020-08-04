@@ -55,6 +55,7 @@ func main() {
 		websocket.GetBlockchainHeightCommand: handlers.GetHeightHandler(*blockchain),
 		websocket.GetMissingBlocksCommand:    handlers.GetMissingBlocks(*blockchain),
 		websocket.GetBlockCommand:            handlers.GetBlock(*blockchain),
+		websocket.RegisterCommand:            handlers.Register(repository.SaveNode(db), repository.GetNodes(db)),
 	}
 	http.Handle("/", alfa.Connection(router))
 	http.ListenAndServe(":10000", nil)

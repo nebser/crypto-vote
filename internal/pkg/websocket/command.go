@@ -12,6 +12,7 @@ const (
 	CloseConnectionCommand
 	GetMissingBlocksCommand
 	GetBlockCommand
+	RegisterCommand
 )
 
 type CommandType int
@@ -26,6 +27,8 @@ func (c CommandType) String() string {
 		return "get-missing-blocks"
 	case GetBlockCommand:
 		return "get-block"
+	case RegisterCommand:
+		return "register"
 	default:
 		return fmt.Sprintf("Unknown command %d", c)
 	}
@@ -38,7 +41,8 @@ func (c *CommandType) UnmarshalJSON(b []byte) error {
 	}
 	command := CommandType(help)
 	switch command {
-	case GetBlockchainHeightCommand, CloseConnectionCommand, GetMissingBlocksCommand, GetBlockCommand:
+	case GetBlockchainHeightCommand, CloseConnectionCommand,
+		GetMissingBlocksCommand, GetBlockCommand, RegisterCommand:
 		*c = command
 		return nil
 	default:
