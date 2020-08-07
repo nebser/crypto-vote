@@ -45,8 +45,9 @@ func main() {
 		repository.AddBlock(db),
 		repository.GetBlock(db),
 	)
+	saveNode := repository.SaveNode(db)
 	if *newOption {
-		if err := alfa.Initialize(*blockchain, options); err != nil {
+		if err := alfa.Initialize(*blockchain, saveNode, options); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -55,7 +56,7 @@ func main() {
 		websocket.GetBlockchainHeightCommand: handlers.GetHeightHandler(*blockchain),
 		websocket.GetMissingBlocksCommand:    handlers.GetMissingBlocks(*blockchain),
 		websocket.GetBlockCommand:            handlers.GetBlock(*blockchain),
-		websocket.RegisterCommand:            handlers.Register(repository.SaveNode(db), repository.GetNodes(db)),
+		websocket.RegisterCommand:            handlers.Register(saveNode, repository.GetNodes(db)),
 	}
 	http.Handle("/", alfa.Connection(router))
 	http.ListenAndServe(":10000", nil)

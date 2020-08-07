@@ -12,6 +12,10 @@ type registerPayload struct {
 	NodeID string `json:"nodeId"`
 }
 
+type registerResponse struct {
+	Nodes blockchain.Nodes `json:"nodes"`
+}
+
 func Register(saveNode blockchain.SaveNodeFn, getNodes blockchain.GetNodesFn) websocket.Handler {
 	return func(payload json.RawMessage) (websocket.Response, error) {
 		var p registerPayload
@@ -27,7 +31,9 @@ func Register(saveNode blockchain.SaveNodeFn, getNodes blockchain.GetNodesFn) we
 			return websocket.Response{}, errors.Wrap(err, "Failed to get nodes")
 		}
 		return websocket.Response{
-			Result: nodes,
+			Result: registerResponse{
+				Nodes: nodes,
+			},
 		}, nil
 	}
 }

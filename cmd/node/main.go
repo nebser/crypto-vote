@@ -40,4 +40,9 @@ func main() {
 			log.Printf("Block found %s", block)
 		}
 	}
+	nodes, err := operations.Register(conn)("1")
+	if err != nil {
+		log.Fatalf("Failed to get nodes %s\n", err)
+	}
+	log.Printf("Nodes %#v\n", nodes)
 }

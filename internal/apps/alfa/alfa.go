@@ -59,7 +59,7 @@ func loadWallets(fileList keyfiles.KeyFilesList) (wallet.Wallets, error) {
 	return result, nil
 }
 
-func Initialize(blockchain _blockchain.Blockchain, options Options) error {
+func Initialize(blockchain _blockchain.Blockchain, saveNode _blockchain.SaveNodeFn, options Options) error {
 	masterWallet, err := wallet.Import(keyfiles.KeyFiles{
 		PublicKeyFile:  options.PublicKeyFileName,
 		PrivateKeyFile: options.PrivateKeyFileName,
@@ -97,6 +97,12 @@ func Initialize(blockchain _blockchain.Blockchain, options Options) error {
 	block, err := _blockchain.NewBlock(blockchain.GetTip(), baseTransactions)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create block of base transactions")
+	}
+	if err := saveNode(_blockchain.Node{
+		Type: _blockchain.AlfaNodeType,
+		ID:   "0",
+	}); err != nil {
+		return errors.Wrap(err, "Failed to create record for alfa node")
 	}
 	return blockchain.AddBlock(*block)
 
