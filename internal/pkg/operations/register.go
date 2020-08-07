@@ -13,11 +13,6 @@ type registerPayload struct {
 	NodeID string `json:"nodeId"`
 }
 
-type registerResponse struct {
-	Result registerResult    `json:"result"`
-	Error  *_websocket.Error `json:"error"`
-}
-
 type registerResult struct {
 	Nodes blockchain.Nodes `json:"nodes"`
 }
@@ -30,13 +25,10 @@ func Register(conn *websocket.Conn) RegisterFn {
 				NodeID: nodeID,
 			},
 		}
-		var r registerResponse
-		if err := send(conn, payload, &r); err != nil {
+		var r registerResult
+		if err := call(conn, payload, &r); err != nil {
 			return nil, errors.Wrapf(err, "Failed to send operation %#v", payload)
 		}
-		if r.Error != nil {
-			return nil, errors.Errorf("Failed to register to node list %s", r.Error)
-		}
-		return r.Result.Nodes, nil
+		return r.Nodes, nil
 	}
 }
