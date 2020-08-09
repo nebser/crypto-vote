@@ -82,6 +82,37 @@ func AddBlock(db *bolt.DB) blockchain.AddBlockFn {
 	}
 }
 
+func AddBlocks(db *bolt.DB) blockchain.AddBlocksFn {
+	return func(blocks blockchain.Blocks) ([]byte, error) {
+		var tip []byte
+		err := db.Update(func(tx *bolt.Tx) error {
+			b := tx.Bucket(blocksBucket())
+			if b == nil {
+				created, err := tx.CreateBucket(blocksBucket())
+				if err != nil {
+					return errors.Wrap(err, "Failed to create blocks bucket")
+				}
+				b = created
+			}
+			for _, block := range blocks {
+				raw, err := json.Marshal(newBlock(block))
+				if err != nil {
+					return errors.Wrapf(err, "Failed to serialize block %#v", block)
+				}
+				if err := b.Put(block.Header.Hash, raw); err != nil {
+					return errors.Wrapf(err, "Failed to save block %#v", block)
+				}
+				tip = block.Header.Hash
+			}
+			if err := b.Put(tipKey(), tip); err != nil {
+				return errors.Wrap(err, "Failed to update tip")
+			}
+			return nil
+		})
+		return tip, err
+	}
+}
+
 func GetBlock(db *bolt.DB) blockchain.GetBlockFn {
 	return func(hash []byte) (*blockchain.Block, error) {
 		var result *blockchain.Block

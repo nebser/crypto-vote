@@ -36,6 +36,8 @@ type Block struct {
 	Body     Body
 }
 
+type Blocks []Block
+
 func (b Block) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("-----BEGIN BLOCK-----\n")

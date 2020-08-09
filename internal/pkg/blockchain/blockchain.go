@@ -17,6 +17,8 @@ type InitBlockchainFn func(Block) ([]byte, error)
 
 type AddBlockFn func(Block) ([]byte, error)
 
+type AddBlocksFn func(Blocks) ([]byte, error)
+
 type GetBlockFn func(hash []byte) (*Block, error)
 
 type Blockchain struct {
@@ -24,6 +26,19 @@ type Blockchain struct {
 	initBlockchain InitBlockchainFn
 	addBlock       AddBlockFn
 	getBlock       GetBlockFn
+}
+
+func GetHeight(getTip GetTipFn, getBlock GetBlockFn) (int, error) {
+	result := 0
+	for current := getTip(); current != nil; {
+		block, err := getBlock(current)
+		if err != nil {
+			return 0, errors.Wrapf(err, "Failed to get block %x", block)
+		}
+		result++
+		current = block.Header.Prev
+	}
+	return result, nil
 }
 
 func NewBlockchain(getTip GetTipFn, initBlockchain InitBlockchainFn, addBlock AddBlockFn, getBlock GetBlockFn) *Blockchain {
@@ -36,16 +51,7 @@ func NewBlockchain(getTip GetTipFn, initBlockchain InitBlockchainFn, addBlock Ad
 }
 
 func (b Blockchain) GetHeight() (int, error) {
-	result := 0
-	for current := b.getTip(); current != nil; {
-		block, err := b.getBlock(current)
-		if err != nil {
-			return 0, errors.Wrapf(err, "Failed to get block %x", block)
-		}
-		result++
-		current = block.Header.Prev
-	}
-	return result, nil
+	return GetHeight(b.getTip, b.getBlock)
 }
 
 func (b Blockchain) GetTip() []byte {
@@ -71,19 +77,23 @@ func (b Blockchain) GetBlock(hash []byte) (*Block, error) {
 }
 
 func (b Blockchain) Print() error {
-	height, err := b.GetHeight()
+	return PrintBlockchain(b.getTip, b.getBlock)
+}
+
+func PrintBlockchain(getTip GetTipFn, getBlock GetBlockFn) error {
+	height, err := GetHeight(getTip, getBlock)
 	if err != nil {
 		return errors.Wrap(err, "Failed to fetch height")
 	}
 	fmt.Printf("Block height: %d\n", height)
-	return printOne(b.GetTip(), b)
+	return printOne(getTip(), getBlock)
 }
 
-func printOne(hash []byte, chain Blockchain) error {
+func printOne(hash []byte, getBlock GetBlockFn) error {
 	if hash == nil {
 		return nil
 	}
-	block, err := chain.GetBlock(hash)
+	block, err := getBlock(hash)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to fetch block %s", hash)
 	}
@@ -91,5 +101,5 @@ func printOne(hash []byte, chain Blockchain) error {
 		return errors.Errorf("Block with hash %s does not exist", hash)
 	}
 	fmt.Printf("%s", *block)
-	return printOne(block.Header.Prev, chain)
+	return printOne(block.Header.Prev, getBlock)
 }
