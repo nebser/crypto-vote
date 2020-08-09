@@ -2,12 +2,18 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/nebser/crypto-vote/internal/pkg/keyfiles"
 	"github.com/nebser/crypto-vote/internal/pkg/repository"
+	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/nebser/crypto-vote/internal/pkg/websocket"
+	"github.com/pkg/errors"
 
 	"github.com/nebser/crypto-vote/internal/apps/alfa"
 	"github.com/nebser/crypto-vote/internal/apps/alfa/handlers"
@@ -16,29 +22,80 @@ import (
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 )
 
+func getKeyFiles(keyDirectory string) (keyfiles.KeyFilesList, error) {
+	files, err := ioutil.ReadDir(keyDirectory)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to read key file directory %s", keyDirectory)
+	}
+
+	fileGroups := map[string]keyfiles.KeyFiles{}
+	for _, f := range files {
+		if strings.Contains(f.Name(), "address") {
+			continue
+		}
+		name := strings.Replace(f.Name(), "_pub", "", 1)
+		group := fileGroups[name]
+		if strings.Contains(f.Name(), "pub") {
+			group.PublicKeyFile = fmt.Sprintf("%s/%s", keyDirectory, f.Name())
+		} else {
+			group.PrivateKeyFile = fmt.Sprintf("%s/%s", keyDirectory, f.Name())
+		}
+		fileGroups[name] = group
+	}
+
+	result := keyfiles.KeyFilesList{}
+	for _, keyFiles := range fileGroups {
+		result = append(result, keyFiles)
+	}
+	return result, nil
+}
+
+const (
+	dbFileName = "db"
+)
+
 func main() {
 	newOption := flag.Bool("new", false, "Should initialize new blockchain")
-	privateKeyOption := flag.String("private", "alfa/key.pem", "Private key file path")
-	publicKeyOption := flag.String("public", "alfa/key_pub.pem", "Public key file path")
-	clientKeysDirOption := flag.String("clients", "clients", "Client key pair files directory")
-	dbFileName := flag.String("db", "db", "File name to use for bolt database")
+	privateKey := flag.String("private", "alfa/key.pem", "Private key file path")
+	publicKey := flag.String("public", "alfa/key_pub.pem", "Public key file path")
+	clientKeysDir := flag.String("clients", "clients", "Client key pair files directory")
+	nodeKeysDir := flag.String("nodes", "nodes", "Nodes key pair files directory")
 
 	flag.Parse()
-	options := alfa.Options{
-		PublicKeyFileName:  *publicKeyOption,
-		PrivateKeyFileName: *privateKeyOption,
-		ClientKeysDir:      *clientKeysDirOption,
-	}
 	if *newOption {
-		if err := os.Remove(*dbFileName); err != nil {
-			log.Fatalf("Failed to remove file %s", *dbFileName)
+		switch _, err := os.Stat(dbFileName); {
+		case err == nil:
+			if err := os.Remove(dbFileName); err != nil {
+				log.Fatalf("Failed to remove file %s", dbFileName)
+			}
+		case err != nil && !os.IsNotExist(err):
+			log.Fatalf("Failed to read stat for file %s", dbFileName)
 		}
 	}
-	db, err := bolt.Open(*dbFileName, 0600, nil)
+	db, err := bolt.Open(dbFileName, 0600, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
+	masterWallet, err := wallet.Import(keyfiles.KeyFiles{
+		PublicKeyFile:  *publicKey,
+		PrivateKeyFile: *privateKey,
+	})
+	if err != nil {
+		log.Fatalf("Failed to load master wallet %s", err)
+	}
+	clientKeyFiles, err := getKeyFiles(*clientKeysDir)
+	if err != nil {
+		log.Fatalf("Failed to load client key files directory %s", err)
+	}
+	nodeKeyFiles, err := getKeyFiles(*nodeKeysDir)
+	if err != nil {
+		log.Fatalf("Failed to load node key files directory %s", err)
+	}
+	wallets, err := wallet.ImportMultiple(append(clientKeyFiles, nodeKeyFiles...))
+	if err != nil {
+		log.Fatalf("Failed to wallets %s", err)
+	}
 	blockchain := blockchain.NewBlockchain(
 		repository.GetTip(db),
 		repository.InitBlockchain(db),
@@ -47,7 +104,7 @@ func main() {
 	)
 	saveNode := repository.SaveNode(db)
 	if *newOption {
-		if err := alfa.Initialize(*blockchain, saveNode, options); err != nil {
+		if err := alfa.Initialize(*masterWallet, wallets, *blockchain, saveNode); err != nil {
 			log.Fatal(err)
 		}
 	}

@@ -8,24 +8,36 @@ import (
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 )
 
+func exportMultiple(directory, base string, start, num int) error {
+	wallets := wallet.Wallets{}
+	for i := 0; i < num; i++ {
+		w, err := wallet.New()
+		if err != nil {
+			return err
+		}
+		wallets = append(wallets, *w)
+	}
+	for i, w := range wallets {
+		if err := w.Export(fmt.Sprintf("%s/%s%d", directory, base, start+i)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func main() {
 	alfaKeyDir := flag.String("alfa", "alfa", "Directory where to create key pairs for alfa node")
 	clientKeysDir := flag.String("clients", "clients", "Directory where to create client key pairs")
-	num := flag.Int("clientsNumber", 50, "Number of client key pairs to generate")
+	nodesKeysDir := flag.String("nodes", "nodes", "Directory where to create node key pairs")
+	numOfClients := flag.Int("clientsNumber", 50, "Number of client key pairs to generate")
+	numOfNodes := flag.Int("nodesNumber", 5, "Number of node key pairs to generate")
 	flag.Parse()
 
-	clientWallets := wallet.Wallets{}
-	for i := 0; i < *num; i++ {
-		w, err := wallet.New()
-		if err != nil {
-			log.Fatal(err)
-		}
-		clientWallets = append(clientWallets, *w)
+	if err := exportMultiple(*clientKeysDir, "c", 0, *numOfClients); err != nil {
+		log.Fatalf("Failed to generate keys for clients %s", err)
 	}
-	for i, w := range clientWallets {
-		if err := w.Export(fmt.Sprintf("%s/c%d", *clientKeysDir, i)); err != nil {
-			log.Fatal(err)
-		}
+	if err := exportMultiple(*nodesKeysDir, "n", 1, *numOfNodes); err != nil {
+		log.Fatalf("Failed to generate keys for nodes %s", err)
 	}
 
 	alfaWallet, err := wallet.New()

@@ -24,12 +24,20 @@ import (
 func main() {
 	nodeID := flag.Int("id", 0, "ID of the node [required]")
 	newOption := flag.Bool("new", false, "Should initialize new blockchain")
+	privateKeyOption := flag.String("private", "", "Private key file path [default is nodes/key_id.pem]")
+	publicKeyOption := flag.String("public", "", "Private key file path [default is nodes/key_id_pub.pem]")
 	flag.Parse()
 	if *nodeID <= 0 {
 		log.Fatal("NodeId must be provided and it must be greater than 0")
 	}
-	privateKey := fmt.Sprintf("nodes/key_%d.pem", *nodeID)
-	publicKey := fmt.Sprintf("nodes/key_%d_pub.pem", *nodeID)
+	privateKey := *privateKeyOption
+	if privateKey == "" {
+		privateKey = fmt.Sprintf("nodes/n%d.pem", *nodeID)
+	}
+	publicKey := *publicKeyOption
+	if publicKey == "" {
+		publicKey = fmt.Sprintf("nodes/n%d_pub.pem", *nodeID)
+	}
 	dbFileName := fmt.Sprintf("db_%d", *nodeID)
 
 	_, err := wallet.Import(keyfiles.KeyFiles{PrivateKeyFile: privateKey, PublicKeyFile: publicKey})
