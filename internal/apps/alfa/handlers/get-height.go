@@ -12,9 +12,9 @@ type getHeightResponse struct {
 	Height int `json:"height"`
 }
 
-func GetHeightHandler(blockchain blockchain.Blockchain) websocket.Handler {
+func GetHeightHandler(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn) websocket.Handler {
 	return func(_ json.RawMessage) (websocket.Response, error) {
-		height, err := blockchain.GetHeight()
+		height, err := blockchain.GetHeight(getTip, getBlock)
 		if err != nil {
 			return websocket.Response{}, errors.Wrap(err, "Failed to get height")
 		}

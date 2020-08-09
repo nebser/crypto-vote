@@ -16,13 +16,13 @@ type getBlockResponse struct {
 	Block blockchain.Block `json:"block"`
 }
 
-func GetBlock(blockchain blockchain.Blockchain) websocket.Handler {
+func GetBlock(getBlock blockchain.GetBlockFn) websocket.Handler {
 	return func(payload json.RawMessage) (websocket.Response, error) {
 		var p getBlockPayload
 		if err := json.Unmarshal(payload, &p); err != nil {
 			return websocket.Response{}, errors.Wrapf(err, "Failed to unmarshal data %s into payload", payload)
 		}
-		block, err := blockchain.GetBlock(p.Hash)
+		block, err := getBlock(p.Hash)
 		switch {
 		case err != nil:
 			return websocket.Response{}, errors.Wrapf(err, "Failed to retrieve block %s", p.Hash)

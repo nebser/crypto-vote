@@ -22,6 +22,10 @@ import (
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 )
 
+const (
+	dbFileName = "db"
+)
+
 func getKeyFiles(keyDirectory string) (keyfiles.KeyFilesList, error) {
 	files, err := ioutil.ReadDir(keyDirectory)
 	if err != nil {
@@ -49,10 +53,6 @@ func getKeyFiles(keyDirectory string) (keyfiles.KeyFilesList, error) {
 	}
 	return result, nil
 }
-
-const (
-	dbFileName = "db"
-)
 
 func main() {
 	newOption := flag.Bool("new", false, "Should initialize new blockchain")
@@ -96,23 +96,25 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to wallets %s", err)
 	}
-	blockchain := blockchain.NewBlockchain(
-		repository.GetTip(db),
-		repository.InitBlockchain(db),
-		repository.AddBlock(db),
-		repository.GetBlock(db),
-	)
+
+	getTip := repository.GetTip(db)
+	getBlock := repository.GetBlock(db)
 	saveNode := repository.SaveNode(db)
 	if *newOption {
-		if err := alfa.Initialize(*masterWallet, wallets, *blockchain, saveNode); err != nil {
+		if err := alfa.Initialize(
+			*masterWallet,
+			wallets,
+			repository.InitBlockchain(db),
+			repository.AddBlock(db),
+			saveNode); err != nil {
 			log.Fatal(err)
 		}
 	}
-	blockchain.Print()
+	blockchain.PrintBlockchain(getTip, getBlock)
 	router := websocket.Router{
-		websocket.GetBlockchainHeightCommand: handlers.GetHeightHandler(*blockchain),
-		websocket.GetMissingBlocksCommand:    handlers.GetMissingBlocks(*blockchain),
-		websocket.GetBlockCommand:            handlers.GetBlock(*blockchain),
+		websocket.GetBlockchainHeightCommand: handlers.GetHeightHandler(getTip, getBlock),
+		websocket.GetMissingBlocksCommand:    handlers.GetMissingBlocks(getTip, getBlock),
+		websocket.GetBlockCommand:            handlers.GetBlock(getBlock),
 		websocket.RegisterCommand:            handlers.Register(saveNode, repository.GetNodes(db)),
 	}
 	http.Handle("/", alfa.Connection(router))
