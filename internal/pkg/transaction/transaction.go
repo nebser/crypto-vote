@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -124,4 +125,24 @@ func (txs Transactions) String() string {
 	}
 	builder.WriteString("-----END TRANSACTIONS-----\n")
 	return builder.String()
+}
+
+func (txs Transactions) FindTransactionTo(publicKeyHash []byte) (Transaction, bool) {
+	for _, tx := range txs {
+		for _, output := range tx.Outputs {
+			if bytes.Compare(output.PublicKeyHash, publicKeyHash) == 0 {
+				return tx, true
+			}
+		}
+	}
+	return Transaction{}, false
+}
+
+func (txs Transactions) Find(criteria func(Transaction) bool) (Transaction, bool) {
+	for _, tx := range txs {
+		if criteria(tx) {
+			return tx, true
+		}
+	}
+	return Transaction{}, false
 }

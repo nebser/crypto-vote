@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 
 	"github.com/nebser/crypto-vote/internal/apps/alfa"
 	"github.com/nebser/crypto-vote/internal/apps/node"
@@ -40,7 +41,7 @@ func main() {
 	}
 	dbFileName := fmt.Sprintf("db_%d", *nodeID)
 
-	_, err := wallet.Import(keyfiles.KeyFiles{PrivateKeyFile: privateKey, PublicKeyFile: publicKey})
+	wallet, err := wallet.Import(keyfiles.KeyFiles{PrivateKeyFile: privateKey, PublicKeyFile: publicKey})
 	if err != nil {
 		log.Fatalf("Wallet could not be imported %s\n", err)
 	}
@@ -85,6 +86,11 @@ func main() {
 		log.Fatalf("Failed to initialize node %s", err)
 	}
 	blockchain.PrintBlockchain(getTip, getBlock)
+	nodes, err := operations.Register(conn, *wallet)(strconv.Itoa(*nodeID))
+	if err != nil {
+		log.Fatalf("Failed to register %s\n", err)
+	}
+	log.Printf("Nodes %#v\n", nodes)
 	router := _websocket.Router{}
 	http.Handle("/", alfa.Connection(router))
 	http.ListenAndServe(fmt.Sprintf(":%d", 10000+*nodeID), nil)

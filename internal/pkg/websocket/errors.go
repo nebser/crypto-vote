@@ -23,3 +23,7 @@ func NewInvalidDataError(operation string) *Error {
 func NewBlockNotFoundError(blockHash []byte) *Error {
 	return &Error{Message: fmt.Sprintf("Block %x not found", blockHash)}
 }
+
+func NewUnauthorizedError(err error) *Error {
+	return &Error{Message: fmt.Sprintf("%s", err)}
+}

@@ -21,6 +21,8 @@ type AddBlocksFn func(Blocks) ([]byte, error)
 
 type GetBlockFn func(hash []byte) (*Block, error)
 
+type FindBlockFn func(criteria func(Block) bool) (Block, bool, error)
+
 func GetHeight(getTip GetTipFn, getBlock GetBlockFn) (int, error) {
 	result := 0
 	for current := getTip(); current != nil; {
@@ -32,6 +34,22 @@ func GetHeight(getTip GetTipFn, getBlock GetBlockFn) (int, error) {
 		current = block.Header.Prev
 	}
 	return result, nil
+}
+
+func FindBlock(getTip GetTipFn, getBlock GetBlockFn) FindBlockFn {
+	return func(criteria func(Block) bool) (Block, bool, error) {
+		for current := getTip(); current != nil; {
+			block, err := getBlock(current)
+			if err != nil {
+				return Block{}, false, errors.Wrapf(err, "Failed to get block %x", block)
+			}
+			if criteria(*block) {
+				return *block, true, nil
+			}
+			current = block.Header.Prev
+		}
+		return Block{}, false, nil
+	}
 }
 
 func PrintBlockchain(getTip GetTipFn, getBlock GetBlockFn) error {

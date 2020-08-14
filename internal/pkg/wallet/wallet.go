@@ -118,6 +118,17 @@ func ExtractAddress(publicKey []byte) (string, error) {
 	return encoded, nil
 }
 
+func HashedPublicKey(publicKey []byte) ([]byte, error) {
+	publicSHA256 := sha256.Sum256(publicKey)
+	RIPEMD160Hasher := ripemd160.New()
+	if _, err := RIPEMD160Hasher.Write(publicSHA256[:]); err != nil {
+		return nil, errors.Wrap(err, "Failed to write to RIPEMD")
+	}
+
+	publicRIPEMD160 := RIPEMD160Hasher.Sum(nil)
+	return publicRIPEMD160, nil
+}
+
 func ExtractPublicKeyHash(address string) []byte {
 	decoded := base58.Decode(address)
 	return decoded[1 : len(decoded)-addressLength]

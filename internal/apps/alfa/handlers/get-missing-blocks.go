@@ -34,9 +34,9 @@ func getMissingBlocks(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn
 }
 
 func GetMissingBlocks(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn) websocket.Handler {
-	return func(params json.RawMessage) (websocket.Response, error) {
+	return func(request websocket.Request) (websocket.Response, error) {
 		var payload getMissingBlocksPayload
-		if err := json.Unmarshal(params, &payload); err != nil {
+		if err := json.Unmarshal(request.Body, &payload); err != nil {
 			return websocket.Response{Error: websocket.NewInvalidDataError(websocket.GetMissingBlocksCommand.String())}, nil
 		}
 		result, err := getMissingBlocks(getTip, getBlock, getTip(), payload.LastBlock)

@@ -17,10 +17,10 @@ type registerResponse struct {
 }
 
 func Register(saveNode blockchain.SaveNodeFn, getNodes blockchain.GetNodesFn) websocket.Handler {
-	return func(payload json.RawMessage) (websocket.Response, error) {
+	return func(request websocket.Request) (websocket.Response, error) {
 		var p registerPayload
-		if err := json.Unmarshal(payload, &p); err != nil {
-			return websocket.Response{}, errors.Wrapf(err, "Failed to unmarshal data %s into payload", payload)
+		if err := json.Unmarshal(request.Body, &p); err != nil {
+			return websocket.Response{}, errors.Wrapf(err, "Failed to unmarshal data %s into payload", request.Body)
 		}
 		node := blockchain.Node{ID: p.NodeID, Type: blockchain.RegularNodeType}
 		if err := saveNode(node); err != nil {

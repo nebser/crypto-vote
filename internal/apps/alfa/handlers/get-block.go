@@ -17,10 +17,10 @@ type getBlockResponse struct {
 }
 
 func GetBlock(getBlock blockchain.GetBlockFn) websocket.Handler {
-	return func(payload json.RawMessage) (websocket.Response, error) {
+	return func(request websocket.Request) (websocket.Response, error) {
 		var p getBlockPayload
-		if err := json.Unmarshal(payload, &p); err != nil {
-			return websocket.Response{}, errors.Wrapf(err, "Failed to unmarshal data %s into payload", payload)
+		if err := json.Unmarshal(request.Body, &p); err != nil {
+			return websocket.Response{}, errors.Wrapf(err, "Failed to unmarshal data %s into payload", request.Body)
 		}
 		block, err := getBlock(p.Hash)
 		switch {
