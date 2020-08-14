@@ -74,7 +74,7 @@ func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transa
 		Sender:    creator.PublicKeyHash(),
 		Value:     1,
 	}
-	signature, err := sign(signable, creator.PrivateKey)
+	signature, err := wallet.Sign(signable, creator.PrivateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to sign base transaction")
 	}
