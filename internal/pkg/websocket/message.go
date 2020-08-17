@@ -39,7 +39,7 @@ func (m Message) String() string {
 }
 
 type Ping struct {
-	Message   Message         `json:"type"`
+	Message   Message         `json:"message"`
 	Body      json.RawMessage `json:"body"`
 	Signature string          `json:"signature"`
 	Sender    string          `json:"sender"`
@@ -48,7 +48,7 @@ type Ping struct {
 type signablePing struct {
 	Body    json.RawMessage `json:"body"`
 	Sender  string          `json:"sender"`
-	Message Message         `json:"type"`
+	Message Message         `json:"message"`
 }
 
 func (p Ping) Signable() ([]byte, error) {
@@ -61,7 +61,7 @@ func (p Ping) Signable() ([]byte, error) {
 }
 
 type Pong struct {
-	Message   Message     `json:"type"`
+	Message   Message     `json:"message"`
 	Body      interface{} `json:"body"`
 	Signature string      `json:"signature"`
 	Sender    string      `json:"sender"`

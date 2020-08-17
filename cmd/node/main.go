@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/nebser/crypto-vote/internal/apps/alfa"
 	"github.com/nebser/crypto-vote/internal/apps/node"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/repository"
@@ -92,6 +91,6 @@ func main() {
 	}
 	log.Printf("Nodes %#v\n", nodes)
 	router := _websocket.Router{}
-	http.Handle("/", alfa.Connection(router))
+	http.Handle("/", _websocket.PingPongConnection(router))
 	http.ListenAndServe(fmt.Sprintf(":%d", 10000+*nodeID), nil)
 }

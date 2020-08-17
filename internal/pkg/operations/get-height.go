@@ -14,7 +14,7 @@ type getHeightResult struct {
 func GetHeight(conn *websocket.Conn) GetHeightFn {
 	return func() (int, error) {
 		payload := operation{
-			Type: _websocket.GetBlockchainHeightCommand,
+			Message: _websocket.GetBlockchainHeightMessage,
 		}
 		var r getHeightResult
 		if err := call(conn, payload, &r); err != nil {

@@ -4,7 +4,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	_websocket "github.com/nebser/crypto-vote/internal/pkg/websocket"
-	"github.com/pkg/errors"
 )
 
 type GetBlockFn func(blockHash []byte) (blockchain.Block, error)
@@ -17,11 +16,6 @@ type getBlockResult struct {
 	Block blockchain.Block `json:"block"`
 }
 
-type getBlockResponse struct {
-	Result getBlockResult    `json:"result"`
-	Error  *_websocket.Error `json:"error"`
-}
-
 type ErrBlockNotFound string
 
 func (e ErrBlockNotFound) Error() string {
@@ -31,19 +25,13 @@ func (e ErrBlockNotFound) Error() string {
 func GetBlock(conn *websocket.Conn) GetBlockFn {
 	return func(blockHash []byte) (blockchain.Block, error) {
 		payload := operation{
-			Type: _websocket.GetBlockCommand,
-			Body: getBlockPayload{Hash: blockHash},
+			Message: _websocket.GetBlockMessage,
+			Body:    getBlockPayload{Hash: blockHash},
 		}
-		var r getBlockResponse
-		if err := send(conn, payload, &r); err != nil {
+		var r getBlockResult
+		if err := call(conn, payload, &r); err != nil {
 			return blockchain.Block{}, err
 		}
-		if r.Error != nil {
-			if *r.Error == *_websocket.NewBlockNotFoundError(blockHash) {
-				return blockchain.Block{}, ErrBlockNotFound(r.Error.Message)
-			}
-			return blockchain.Block{}, errors.Errorf("Failed to get block %s", blockHash)
-		}
-		return r.Result.Block, nil
+		return r.Block, nil
 	}
 }

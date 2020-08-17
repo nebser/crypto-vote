@@ -18,8 +18,8 @@ type getMissingBlocksResult struct {
 func GetMissingBlocks(conn *websocket.Conn) GetMissingBlocksFn {
 	return func(lastBlock []byte) ([][]byte, error) {
 		payload := operation{
-			Type: _websocket.GetMissingBlocksCommand,
-			Body: getMissingBlocksPayload{LastBlock: lastBlock},
+			Message: _websocket.GetMissingBlocksMessage,
+			Body:    getMissingBlocksPayload{LastBlock: lastBlock},
 		}
 		var r getMissingBlocksResult
 		if err := call(conn, payload, &r); err != nil {

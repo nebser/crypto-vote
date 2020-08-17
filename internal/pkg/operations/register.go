@@ -23,7 +23,7 @@ type registerResult struct {
 func Register(conn *websocket.Conn, w wallet.Wallet) RegisterFn {
 	return func(nodeID string) (blockchain.Nodes, error) {
 		payload := operation{
-			Type: _websocket.RegisterCommand,
+			Message: _websocket.RegisterMessage,
 			Body: registerPayload{
 				NodeID: nodeID,
 			},
