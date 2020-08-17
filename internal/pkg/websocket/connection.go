@@ -3,6 +3,7 @@ package websocket
 import (
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
@@ -16,13 +17,36 @@ func (c Connection) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
 	}
 }
 
-type Reader func(interface{}) error
+func reader(conn *websocket.Conn, router Router, responseChan chan Pong, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer close(responseChan)
+	for {
+		var ping Ping
+		if err := conn.ReadJSON(&ping); err != nil {
+			log.Println("Failed to parse message")
+			responseChan <- Pong{
+				Message: ErrorMessage,
+			}
+			continue
+		}
+		if ping.Message == CloseConnectionMessage {
+			return
+		}
+		pong := router.Route(ping)
+		if pong != nil {
+			responseChan <- *pong
+		}
+	}
+}
 
-type Writer func(interface{}) error
+func writer(conn *websocket.Conn, responseChan chan Pong, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for pong := range responseChan {
+		conn.WriteJSON(pong)
+	}
+}
 
-type ConnectionHandler func(Router, Reader, Writer) error
-
-func NewSocketConnection(router Router, handler ConnectionHandler) Connection {
+func PingPongConnection(router Router) Connection {
 	return func(resp http.ResponseWriter, request *http.Request) error {
 		upgrader := websocket.Upgrader{}
 		conn, err := upgrader.Upgrade(resp, request, nil)
@@ -31,6 +55,14 @@ func NewSocketConnection(router Router, handler ConnectionHandler) Connection {
 		}
 		defer conn.Close()
 
-		return handler(router, conn.ReadJSON, conn.WriteJSON)
+		responseChan := make(chan Pong, 5)
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+		go reader(conn, router, responseChan, &wg)
+		go writer(conn, responseChan, &wg)
+
+		wg.Wait()
+
+		return nil
 	}
 }

@@ -17,25 +17,23 @@ type getBlockResponse struct {
 }
 
 func GetBlock(getBlock blockchain.GetBlockFn) websocket.Handler {
-	return func(request websocket.Request) (websocket.Response, error) {
+	return func(ping websocket.Ping) (*websocket.Pong, error) {
 		var p getBlockPayload
-		if err := json.Unmarshal(request.Body, &p); err != nil {
-			return websocket.Response{}, errors.Wrapf(err, "Failed to unmarshal data %s into payload", request.Body)
+		if err := json.Unmarshal(ping.Body, &p); err != nil {
+			return nil, errors.Wrapf(err, "Failed to unmarshal data %s into payload", ping.Body)
 		}
 		block, err := getBlock(p.Hash)
 		switch {
 		case err != nil:
-			return websocket.Response{}, errors.Wrapf(err, "Failed to retrieve block %s", p.Hash)
+			return nil, errors.Wrapf(err, "Failed to retrieve block %s", p.Hash)
 		case block == nil:
-			return websocket.Response{
-				Error: websocket.NewBlockNotFoundError(p.Hash),
-			}, nil
+			return websocket.NewErrorPong(websocket.NewBlockNotFoundError(p.Hash)), nil
 		default:
-			return websocket.Response{
-				Result: getBlockResponse{
+			return websocket.NewResponsePong(
+				getBlockResponse{
 					Block: *block,
 				},
-			}, nil
+			), nil
 		}
 	}
 }

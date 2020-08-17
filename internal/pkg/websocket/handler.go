@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-type Authorizer func(Request) error
+type Authorizer func(Ping) error
 
 type ErrUnauthorized string
 
@@ -13,37 +13,41 @@ func (e ErrUnauthorized) Error() string {
 	return fmt.Sprintf("Node with address %s is unauthorized", string(e))
 }
 
-type Handler func(Request) (Response, error)
+type Handler func(Ping) (*Pong, error)
 
 func (h Handler) Authorized(a Authorizer) Handler {
-	return func(request Request) (Response, error) {
+	return func(ping Ping) (*Pong, error) {
 		unauthotizedErr := ErrUnauthorized("")
-		switch err := a(request); {
+		switch err := a(ping); {
 		case errors.As(err, &unauthotizedErr):
-			return Response{Error: NewUnauthorizedError(err)}, nil
+			return &Pong{
+				Message: ErrorMessage,
+				Body:    NewUnauthorizedError(err),
+			}, nil
 		case err != nil:
-			return Response{}, err
+			return nil, err
 		default:
-			return h(request)
+			return h(ping)
 		}
 	}
 }
 
-type Router map[CommandType]Handler
+type Router map[Message]Handler
 
-func (r Router) Route(c Command) (Response, error) {
-	handler, ok := r[c.Type]
+func (r Router) Route(p Ping) *Pong {
+	handler, ok := r[p.Message]
 	if !ok {
-		return Response{Error: NewInvalidCommandError(c.Type)}, nil
+		return &Pong{
+			Message: ErrorMessage,
+			Body:    NewUnknownMessageError(p.Message),
+		}
 	}
-	request := Request{
-		Body:      c.Body,
-		Sender:    c.Sender,
-		Signature: c.Signature,
-	}
-	result, err := handler(request)
+	result, err := handler(p)
 	if err != nil {
-		return Response{Error: NewUnknownError()}, nil
+		return &Pong{
+			Message: ErrorMessage,
+			Body:    NewUnknownError(),
+		}
 	}
-	return result, nil
+	return result
 }

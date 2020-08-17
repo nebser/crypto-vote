@@ -12,17 +12,17 @@ import (
 )
 
 func BlockchainAuthorizer(findBlock FindBlockFn) websocket.Authorizer {
-	return func(request websocket.Request) error {
-		rawPublicKey, err := base64.StdEncoding.DecodeString(request.Sender)
+	return func(ping websocket.Ping) error {
+		rawPublicKey, err := base64.StdEncoding.DecodeString(ping.Sender)
 		if err != nil {
 			return websocket.ErrUnauthorized("Invalid public key")
 		}
-		rawSignature, err := base64.StdEncoding.DecodeString(request.Signature)
+		rawSignature, err := base64.StdEncoding.DecodeString(ping.Signature)
 		if err != nil {
 			return websocket.ErrUnauthorized("Invalid signature")
 		}
 
-		if !wallet.Verify(request, rawSignature, rawPublicKey) {
+		if !wallet.Verify(ping, rawSignature, rawPublicKey) {
 			return websocket.ErrUnauthorized("Signature does not match the payload")
 		}
 
@@ -40,7 +40,7 @@ func BlockchainAuthorizer(findBlock FindBlockFn) websocket.Authorizer {
 		case err != nil:
 			return errors.Errorf("Failed to find block. Error: %s", err)
 		case !ok:
-			return websocket.ErrUnauthorized(fmt.Sprintf("Node %s does not exist", request.Sender))
+			return websocket.ErrUnauthorized(fmt.Sprintf("Node %s does not exist", ping.Sender))
 		default:
 			log.Println("Authorized successfully")
 			return nil

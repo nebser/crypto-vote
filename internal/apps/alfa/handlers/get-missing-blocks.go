@@ -34,20 +34,20 @@ func getMissingBlocks(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn
 }
 
 func GetMissingBlocks(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn) websocket.Handler {
-	return func(request websocket.Request) (websocket.Response, error) {
+	return func(ping websocket.Ping) (*websocket.Pong, error) {
 		var payload getMissingBlocksPayload
-		if err := json.Unmarshal(request.Body, &payload); err != nil {
-			return websocket.Response{Error: websocket.NewInvalidDataError(websocket.GetMissingBlocksCommand.String())}, nil
+		if err := json.Unmarshal(ping.Body, &payload); err != nil {
+			return websocket.NewErrorPong(websocket.NewInvalidDataError(websocket.GetMissingBlocksMessage.String())), nil
 		}
 		result, err := getMissingBlocks(getTip, getBlock, getTip(), payload.LastBlock)
 		if err != nil {
-			return websocket.Response{}, err
+			return nil, err
 		}
 		log.Printf("Num of blocks %d", len(result))
-		return websocket.Response{
-			Result: getMissingBlocksResponse{
+		return websocket.NewResponsePong(
+			getMissingBlocksResponse{
 				Blocks: result,
 			},
-		}, nil
+		), nil
 	}
 }
