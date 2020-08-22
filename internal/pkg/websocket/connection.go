@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -23,7 +24,11 @@ func reader(conn *websocket.Conn, router Router, responseChan chan Pong, wg *syn
 	for {
 		var ping Ping
 		if err := conn.ReadJSON(&ping); err != nil {
-			log.Println("Failed to parse message")
+			if err != io.ErrUnexpectedEOF {
+				log.Println("Closing reader")
+				return
+			}
+			log.Printf("Failed to parse message %+v, %t\n", err, errors.Is(err, io.ErrUnexpectedEOF))
 			responseChan <- Pong{
 				Message: ErrorMessage,
 			}
