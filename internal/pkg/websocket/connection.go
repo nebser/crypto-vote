@@ -73,3 +73,17 @@ func PingPongConnection(router Router, hub Hub) Connection {
 		return nil
 	}
 }
+
+func MaintainConnection(conn *websocket.Conn, router Router, hub Hub, nodeID string) {
+	defer conn.Close()
+
+	responseChan := make(chan Pong, 5)
+	id := hub.Add(responseChan)
+	hub.Register(id, nodeID)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go reader(conn, id, hub, router, responseChan, &wg)
+	go writer(conn, responseChan, &wg)
+
+	wg.Wait()
+}

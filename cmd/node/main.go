@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/nebser/crypto-vote/internal/apps/node"
+	"github.com/nebser/crypto-vote/internal/apps/node/handlers"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/repository"
 
@@ -70,7 +71,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}
-	defer conn.Close()
 
 	getTip := repository.GetTip(db)
 	getBlock := repository.GetBlock(db)
@@ -89,8 +89,47 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to register %s\n", err)
 	}
+	hub := _websocket.NewHub()
+	router := _websocket.Router{
+		_websocket.RegisterMessage: handlers.Register(hub).
+			Authorized(
+				blockchain.BlockchainAuthorizer(
+					blockchain.FindBlock(
+						repository.GetTip(db),
+						repository.GetBlock(db),
+					),
+				),
+			),
+	}
+	go _websocket.MaintainConnection(conn, router, hub, "0")
+	if err := connectToNodes(nodes, *wallet, router, hub); err != nil {
+		log.Fatalf("Failed to connect to nodes %s", err)
+	}
 	log.Printf("Nodes %#v\n", nodes)
-	router := _websocket.Router{}
-	http.Handle("/", _websocket.PingPongConnection(router))
-	http.ListenAndServe(fmt.Sprintf(":%d", 10000+*nodeID), nil)
+	http.Handle("/", _websocket.PingPongConnection(router, hub))
+	http.ListenAndServe(fmt.Sprintf("localhost:%d", 10000+*nodeID), nil)
+}
+
+func connectToNodes(nodes []string, wallet wallet.Wallet, router _websocket.Router, hub _websocket.Hub) error {
+	for _, node := range nodes {
+		i, err := strconv.Atoi(node)
+		if err != nil {
+			return err
+		}
+		u := url.URL{
+			Scheme: "ws",
+			Host:   fmt.Sprintf("localhost:%d", 10000+i),
+			Path:   "/",
+		}
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		if err != nil {
+			return err
+		}
+		_, err = operations.Register(conn, wallet)(node)
+		if err != nil {
+			return err
+		}
+		go _websocket.MaintainConnection(conn, router, hub, node)
+	}
+	return nil
 }

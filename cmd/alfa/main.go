@@ -112,12 +112,13 @@ func main() {
 	}
 	blockchain.PrintBlockchain(getTip, getBlock)
 	authorizer := blockchain.BlockchainAuthorizer(blockchain.FindBlock(getTip, getBlock))
+	hub := websocket.NewHub()
 	router := websocket.Router{
 		websocket.GetBlockchainHeightMessage: handlers.GetHeightHandler(getTip, getBlock),
 		websocket.GetMissingBlocksMessage:    handlers.GetMissingBlocks(getTip, getBlock),
 		websocket.GetBlockMessage:            handlers.GetBlock(getBlock),
-		websocket.RegisterMessage:            handlers.Register(saveNode, repository.GetNodes(db)).Authorized(authorizer),
+		websocket.RegisterMessage:            handlers.Register(hub).Authorized(authorizer),
 	}
-	http.Handle("/", websocket.PingPongConnection(router))
+	http.Handle("/", websocket.PingPongConnection(router, hub))
 	http.ListenAndServe(":10000", nil)
 }
