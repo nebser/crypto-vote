@@ -4,24 +4,23 @@ import (
 	"encoding/base64"
 
 	"github.com/gorilla/websocket"
-	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	_websocket "github.com/nebser/crypto-vote/internal/pkg/websocket"
 	"github.com/pkg/errors"
 )
 
-type RegisterFn func(nodeID string) (blockchain.Nodes, error)
+type RegisterFn func(nodeID string) ([]string, error)
 
 type registerPayload struct {
 	NodeID string `json:"nodeId"`
 }
 
 type registerResult struct {
-	Nodes blockchain.Nodes `json:"nodes"`
+	Nodes []string `json:"nodes"`
 }
 
 func Register(conn *websocket.Conn, w wallet.Wallet) RegisterFn {
-	return func(nodeID string) (blockchain.Nodes, error) {
+	return func(nodeID string) ([]string, error) {
 		payload := operation{
 			Message: _websocket.RegisterMessage,
 			Body: registerPayload{

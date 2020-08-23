@@ -13,10 +13,10 @@ func (e ErrUnauthorized) Error() string {
 	return fmt.Sprintf("Node with address %s is unauthorized", string(e))
 }
 
-type Handler func(Ping) (*Pong, error)
+type Handler func(Ping, string) (*Pong, error)
 
 func (h Handler) Authorized(a Authorizer) Handler {
-	return func(ping Ping) (*Pong, error) {
+	return func(ping Ping, id string) (*Pong, error) {
 		unauthotizedErr := ErrUnauthorized("")
 		switch err := a(ping); {
 		case errors.As(err, &unauthotizedErr):
@@ -27,14 +27,14 @@ func (h Handler) Authorized(a Authorizer) Handler {
 		case err != nil:
 			return nil, err
 		default:
-			return h(ping)
+			return h(ping, id)
 		}
 	}
 }
 
 type Router map[Message]Handler
 
-func (r Router) Route(p Ping) *Pong {
+func (r Router) Route(p Ping, id string) *Pong {
 	handler, ok := r[p.Message]
 	if !ok {
 		return &Pong{
@@ -42,7 +42,7 @@ func (r Router) Route(p Ping) *Pong {
 			Body:    NewUnknownMessageError(p.Message),
 		}
 	}
-	result, err := handler(p)
+	result, err := handler(p, id)
 	if err != nil {
 		return &Pong{
 			Message: ErrorMessage,

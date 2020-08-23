@@ -17,7 +17,7 @@ type getBlockResponse struct {
 }
 
 func GetBlock(getBlock blockchain.GetBlockFn) websocket.Handler {
-	return func(ping websocket.Ping) (*websocket.Pong, error) {
+	return func(ping websocket.Ping, _ string) (*websocket.Pong, error) {
 		var p getBlockPayload
 		if err := json.Unmarshal(ping.Body, &p); err != nil {
 			return nil, errors.Wrapf(err, "Failed to unmarshal data %s into payload", ping.Body)

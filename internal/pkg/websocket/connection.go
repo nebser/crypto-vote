@@ -18,9 +18,10 @@ func (c Connection) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func reader(conn *websocket.Conn, router Router, responseChan chan Pong, wg *sync.WaitGroup) {
+func reader(conn *websocket.Conn, id string, hub Hub, router Router, responseChan chan Pong, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer close(responseChan)
+	defer hub.Unregister(id)
 	for {
 		var ping Ping
 		if err := conn.ReadJSON(&ping); err != nil {
@@ -37,7 +38,7 @@ func reader(conn *websocket.Conn, router Router, responseChan chan Pong, wg *syn
 		if ping.Message == CloseConnectionMessage {
 			return
 		}
-		pong := router.Route(ping)
+		pong := router.Route(ping, id)
 		if pong != nil {
 			responseChan <- *pong
 		}
@@ -51,7 +52,7 @@ func writer(conn *websocket.Conn, responseChan chan Pong, wg *sync.WaitGroup) {
 	}
 }
 
-func PingPongConnection(router Router) Connection {
+func PingPongConnection(router Router, hub Hub) Connection {
 	return func(resp http.ResponseWriter, request *http.Request) error {
 		upgrader := websocket.Upgrader{}
 		conn, err := upgrader.Upgrade(resp, request, nil)
@@ -61,9 +62,10 @@ func PingPongConnection(router Router) Connection {
 		defer conn.Close()
 
 		responseChan := make(chan Pong, 5)
+		id := hub.Add(responseChan)
 		wg := sync.WaitGroup{}
 		wg.Add(2)
-		go reader(conn, router, responseChan, &wg)
+		go reader(conn, id, hub, router, responseChan, &wg)
 		go writer(conn, responseChan, &wg)
 
 		wg.Wait()

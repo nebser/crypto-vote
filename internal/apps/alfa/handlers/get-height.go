@@ -11,7 +11,7 @@ type getHeightResponse struct {
 }
 
 func GetHeightHandler(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn) websocket.Handler {
-	return func(_ websocket.Ping) (*websocket.Pong, error) {
+	return func(websocket.Ping, string) (*websocket.Pong, error) {
 		height, err := blockchain.GetHeight(getTip, getBlock)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to get height")

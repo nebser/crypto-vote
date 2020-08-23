@@ -1,42 +1,59 @@
 package websocket
 
-import "sync"
+import (
+	"sync"
 
-type Hub struct {
-	receivers map[string]chan Pong
-	owner     string
-	lock      *sync.WaitGroup
+	"github.com/google/uuid"
+)
+
+type node struct {
+	ch     chan Pong
+	nodeID string
 }
 
-func NewHub(owner string) Hub {
-	lock := sync.WaitGroup{}
-	lock.Add(1)
+type Hub struct {
+	pending      map[string]node
+	receivers    map[string]node
+	registerLock *sync.Mutex
+}
+
+func NewHub() Hub {
 	return Hub{
-		receivers: make(map[string]chan Pong),
-		owner:     owner,
-		lock:      &lock,
+		receivers:    make(map[string]node),
+		pending:      make(map[string]node),
+		registerLock: &sync.Mutex{},
 	}
 }
 
-func (h Hub) Register(nodeID string, ch chan Pong) {
-	h.receivers[nodeID] = ch
+func (h Hub) Add(ch chan Pong) string {
+	id := uuid.New().String()
+	h.pending[id] = node{ch: ch}
+	return id
 }
 
-func (h Hub) RegisterAtomically(nodeID string, ch chan Pong) []string {
-	h.lock.Wait()
-	defer h.lock.Done()
+func (h Hub) Register(internalID, externalID string) {
+	temp := h.pending[internalID]
+	temp.nodeID = externalID
+	h.receivers[internalID] = temp
+	delete(h.pending, internalID)
+}
+
+func (h Hub) RegisterAtomically(internalID, externalID string) []string {
+	h.registerLock.Lock()
+	defer h.registerLock.Unlock()
 	nodes := h.RegisteredNodes()
-	h.Register(nodeID, ch)
+	h.Register(internalID, externalID)
 	return nodes
 }
 
-func (h Hub) Unregister(nodeID string) {
-	delete(h.receivers, nodeID)
+func (h Hub) Unregister(internalID string) {
+	delete(h.receivers, internalID)
+	delete(h.pending, internalID)
 }
 
 func (h Hub) Broadcast(message Pong) int {
-	for _, ch := range h.receivers {
-		ch <- message
+	for _, node := range h.receivers {
+		node.ch <- message
 	}
 	return len(h.receivers)
 }
@@ -52,11 +69,11 @@ func arrayContains(array []string, target string) bool {
 
 func (h Hub) Multicast(message Pong, receiveCount int, blacklist []string) int {
 	sentCount := 0
-	for node, ch := range h.receivers {
-		if arrayContains(blacklist, node) {
+	for _, node := range h.receivers {
+		if arrayContains(blacklist, node.nodeID) {
 			continue
 		}
-		ch <- message
+		node.ch <- message
 		sentCount++
 		if sentCount == receiveCount {
 			return sentCount
@@ -66,8 +83,8 @@ func (h Hub) Multicast(message Pong, receiveCount int, blacklist []string) int {
 }
 
 func (h Hub) RegisteredNodes() (nodes []string) {
-	for node := range h.receivers {
-		nodes = append(nodes, node)
+	for _, node := range h.receivers {
+		nodes = append(nodes, node.nodeID)
 	}
 	return
 }
