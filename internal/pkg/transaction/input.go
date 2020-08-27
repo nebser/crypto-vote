@@ -3,7 +3,7 @@ package transaction
 type Input struct {
 	TransactionID []byte
 	Vout          int
-	PublicKey     []byte
+	PublicKeyHash []byte
 	Signature     []byte
 }
 

@@ -22,7 +22,7 @@ func (tx Transaction) String() string {
 	builder.WriteString(fmt.Sprintf("ID: %x\n", tx.ID))
 	builder.WriteString("Inputs:\n")
 	for _, in := range tx.Inputs {
-		builder.WriteString(fmt.Sprintf("\tFrom: %x\n", in.PublicKey))
+		builder.WriteString(fmt.Sprintf("\tFrom: %x\n", in.PublicKeyHash))
 		builder.WriteString(fmt.Sprintf("\tSignature: %x\n", in.Signature))
 	}
 	builder.WriteString("Outputs:\n")
@@ -86,9 +86,9 @@ func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transa
 	}
 	inputs := Inputs{
 		{
-			Vout:      -1,
-			PublicKey: creator.PublicKey,
-			Signature: signature,
+			Vout:          -1,
+			PublicKeyHash: creator.PublicKeyHash(),
+			Signature:     signature,
 		},
 	}
 	id, err := newID(inputs, outputs)
