@@ -57,52 +57,47 @@ func InitBlockchain(db *bolt.DB) blockchain.InitBlockchainFn {
 	}
 }
 
-func addBlock(block blockchain.Block, tip *[]byte) func(tx *bolt.Tx) error {
-	return func(tx *bolt.Tx) error {
-		b := tx.Bucket(blocksBucket())
-		if b == nil {
-			created, err := tx.CreateBucket(blocksBucket())
-			if err != nil {
-				return errors.Wrap(err, "Failed to create blocks bucket")
-			}
-			b = created
-		}
-		rawBlock, err := json.Marshal(newBlock(block))
+func addBlock(tx *bolt.Tx, block blockchain.Block) ([]byte, error) {
+	b := tx.Bucket(blocksBucket())
+	if b == nil {
+		created, err := tx.CreateBucket(blocksBucket())
 		if err != nil {
-			return errors.Wrapf(err, "Failed to marshal block %#v", block)
+			return nil, errors.Wrap(err, "Failed to create blocks bucket")
 		}
-		if err := b.Put(block.Header.Hash, rawBlock); err != nil {
-			return errors.Wrapf(err, "Failed to put block %#v", block)
-		}
-		if err := b.Put(tipKey(), block.Header.Hash); err != nil {
-			return errors.Wrap(err, "Failed to update tip")
-		}
-		tip = &block.Header.Hash
-		return nil
+		b = created
 	}
-}
-
-func deleteTransactionsInBlock(block blockchain.Block) func(*bolt.Tx) error {
-	return func(tx *bolt.Tx) error {
-		for _, transaction := range block.Body.Transactions {
-			if err := deleteTransaction(transaction)(tx); err != nil {
-				return errors.Wrapf(err, "Failed to delete transaction %s", transaction)
-			}
-		}
-		return nil
+	rawBlock, err := json.Marshal(newBlock(block))
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to marshal block %#v", block)
 	}
+	if err := b.Put(block.Header.Hash, rawBlock); err != nil {
+		return nil, errors.Wrapf(err, "Failed to put block %#v", block)
+	}
+	if err := b.Put(tipKey(), block.Header.Hash); err != nil {
+		return nil, errors.Wrap(err, "Failed to update tip")
+	}
+	return block.Header.Hash, nil
 }
 
 func AddBlock(db *bolt.DB) blockchain.AddBlockFn {
 	return func(block blockchain.Block) ([]byte, error) {
 		var tip []byte
-		err := db.Update(
-			transactionsArray(
-				addBlock(block, &tip),
-				saveUTXOs(block.Body.Transactions),
-				deleteTransactionsInBlock(block),
-			),
-		)
+		err := db.Update(func(tx *bolt.Tx) error {
+			created, err := addBlock(tx, block)
+			if err != nil {
+				return err
+			}
+			tip = created
+			for _, transaction := range block.Body.Transactions {
+				if err := deleteTransaction(tx, transaction); err != nil {
+					return err
+				}
+				if err := saveUTXOS(tx, transaction.UTXOs()); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 		return tip, err
 	}
 }

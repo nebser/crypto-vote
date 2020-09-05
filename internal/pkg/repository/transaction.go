@@ -123,21 +123,13 @@ func SaveTransaction(db *bolt.DB) transaction.SaveTransaction {
 	}
 }
 
-func deleteTransaction(transaction transaction.Transaction) func(*bolt.Tx) error {
-	return func(tx *bolt.Tx) error {
-		b := tx.Bucket(transactionsBucket())
-		if b == nil {
-			return nil
-		}
-		if err := b.Delete(transaction.ID); err != nil {
-			return errors.Wrapf(err, "Failed to delete transaction %s", transaction)
-		}
+func deleteTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
+	b := tx.Bucket(transactionsBucket())
+	if b == nil {
 		return nil
 	}
-}
-
-func DeleteTransaction(db *bolt.DB) transaction.DeleteTransaction {
-	return func(transaction transaction.Transaction) error {
-		return db.Update(deleteTransaction(transaction))
+	if err := b.Delete(transaction.ID); err != nil {
+		return errors.Wrapf(err, "Failed to delete transaction %s", transaction)
 	}
+	return nil
 }
