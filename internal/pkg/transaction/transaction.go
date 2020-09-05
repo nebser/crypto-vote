@@ -11,6 +11,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+type SaveTransaction func(Transaction) error
+
+type DeleteTransaction func(Transaction) error
+
 type Transaction struct {
 	ID      []byte  `json:"id"`
 	Inputs  Inputs  `json:"inputs"`
@@ -104,6 +108,17 @@ func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transa
 
 func (t Transaction) IsBase() bool {
 	return len(t.Inputs) == 1 && len(t.Outputs) == 1 && t.Inputs[0].Vout == -1
+}
+
+func (t Transaction) UTXOs() (utxos []UTXO) {
+	for _, out := range t.Outputs {
+		utxos = append(utxos, UTXO{
+			PublicKeyHash: out.PublicKeyHash,
+			TransactionID: t.ID,
+			Value:         out.Value,
+		})
+	}
+	return
 }
 
 type Transactions []Transaction

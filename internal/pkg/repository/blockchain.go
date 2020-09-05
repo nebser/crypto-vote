@@ -57,58 +57,52 @@ func InitBlockchain(db *bolt.DB) blockchain.InitBlockchainFn {
 	}
 }
 
-func AddBlock(db *bolt.DB) blockchain.AddBlockFn {
-	return func(block blockchain.Block) ([]byte, error) {
-		var tip []byte
-		err := db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket(blocksBucket())
-			if b == nil {
-				return errors.New("Blocks bucket does not exist")
-			}
-			rawBlock, err := json.Marshal(newBlock(block))
+func addBlock(block blockchain.Block, tip *[]byte) func(tx *bolt.Tx) error {
+	return func(tx *bolt.Tx) error {
+		b := tx.Bucket(blocksBucket())
+		if b == nil {
+			created, err := tx.CreateBucket(blocksBucket())
 			if err != nil {
-				return errors.Wrapf(err, "Failed to marshal block %#v", block)
+				return errors.Wrap(err, "Failed to create blocks bucket")
 			}
-			if err := b.Put(block.Header.Hash, rawBlock); err != nil {
-				return errors.Wrapf(err, "Failed to put block %#v", block)
-			}
-			if err := b.Put(tipKey(), block.Header.Hash); err != nil {
-				return errors.Wrap(err, "Failed to update tip")
-			}
-			tip = block.Header.Hash
-			return nil
-		})
-		return tip, err
+			b = created
+		}
+		rawBlock, err := json.Marshal(newBlock(block))
+		if err != nil {
+			return errors.Wrapf(err, "Failed to marshal block %#v", block)
+		}
+		if err := b.Put(block.Header.Hash, rawBlock); err != nil {
+			return errors.Wrapf(err, "Failed to put block %#v", block)
+		}
+		if err := b.Put(tipKey(), block.Header.Hash); err != nil {
+			return errors.Wrap(err, "Failed to update tip")
+		}
+		tip = &block.Header.Hash
+		return nil
 	}
 }
 
-func AddBlocks(db *bolt.DB) blockchain.AddBlocksFn {
-	return func(blocks blockchain.Blocks) ([]byte, error) {
+func deleteTransactionsInBlock(block blockchain.Block) func(*bolt.Tx) error {
+	return func(tx *bolt.Tx) error {
+		for _, transaction := range block.Body.Transactions {
+			if err := deleteTransaction(transaction)(tx); err != nil {
+				return errors.Wrapf(err, "Failed to delete transaction %s", transaction)
+			}
+		}
+		return nil
+	}
+}
+
+func AddBlock(db *bolt.DB) blockchain.AddBlockFn {
+	return func(block blockchain.Block) ([]byte, error) {
 		var tip []byte
-		err := db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket(blocksBucket())
-			if b == nil {
-				created, err := tx.CreateBucket(blocksBucket())
-				if err != nil {
-					return errors.Wrap(err, "Failed to create blocks bucket")
-				}
-				b = created
-			}
-			for _, block := range blocks {
-				raw, err := json.Marshal(newBlock(block))
-				if err != nil {
-					return errors.Wrapf(err, "Failed to serialize block %#v", block)
-				}
-				if err := b.Put(block.Header.Hash, raw); err != nil {
-					return errors.Wrapf(err, "Failed to save block %#v", block)
-				}
-				tip = block.Header.Hash
-			}
-			if err := b.Put(tipKey(), tip); err != nil {
-				return errors.Wrap(err, "Failed to update tip")
-			}
-			return nil
-		})
+		err := db.Update(
+			transactionsArray(
+				addBlock(block, &tip),
+				saveUTXOs(block.Body.Transactions),
+				deleteTransactionsInBlock(block),
+			),
+		)
 		return tip, err
 	}
 }

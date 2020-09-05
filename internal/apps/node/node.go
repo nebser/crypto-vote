@@ -12,7 +12,7 @@ func Initialize(
 	getBlock operations.GetBlockFn,
 	getTip blockchain.GetTipFn,
 	getBlockchainBlock blockchain.GetBlockFn,
-	addBlocks blockchain.AddBlocksFn,
+	addBlock blockchain.AddBlockFn,
 ) error {
 	blockchainHeight, err := getHeight()
 	if err != nil {
@@ -41,8 +41,10 @@ func Initialize(
 		}
 		blocks = append(blocks, block)
 	}
-	if _, err := addBlocks(blocks); err != nil {
-		return errors.Wrap(err, "Failed to add blocks during initialization")
+	for _, block := range blocks {
+		if _, err := addBlock(block); err != nil {
+			return errors.Wrap(err, "Failed to add block during initialization")
+		}
 	}
 	return nil
 }

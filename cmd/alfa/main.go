@@ -9,6 +9,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/nebser/crypto-vote/internal/pkg/api"
+
+	"github.com/gorilla/mux"
+
 	"github.com/nebser/crypto-vote/internal/pkg/keyfiles"
 	"github.com/nebser/crypto-vote/internal/pkg/repository"
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
@@ -100,6 +104,7 @@ func main() {
 	getTip := repository.GetTip(db)
 	getBlock := repository.GetBlock(db)
 	saveNode := repository.SaveNode(db)
+	findBlock := blockchain.FindBlock(getTip, getBlock)
 	if *newOption {
 		if err := alfa.Initialize(
 			*masterWallet,
@@ -111,7 +116,7 @@ func main() {
 		}
 	}
 	blockchain.PrintBlockchain(getTip, getBlock)
-	authorizer := blockchain.BlockchainAuthorizer(blockchain.FindBlock(getTip, getBlock))
+	authorizer := blockchain.BlockchainAuthorizer(findBlock)
 	hub := websocket.NewHub()
 	router := websocket.Router{
 		websocket.GetBlockchainHeightMessage: handlers.GetHeightHandler(getTip, getBlock),
@@ -120,5 +125,11 @@ func main() {
 		websocket.RegisterMessage:            handlers.Register(hub).Authorized(authorizer),
 	}
 	http.Handle("/", websocket.PingPongConnection(router, hub))
-	http.ListenAndServe(":10000", nil)
+	go http.ListenAndServe(":10000", nil)
+
+	httpRouter := mux.NewRouter()
+	httpRouter.HandleFunc("/vote", api.NewHandleFunc(handlers.Vote(findBlock))).Methods("POST")
+	http.Handle("/elections", httpRouter)
+	http.ListenAndServe(":8000", nil)
+
 }

@@ -80,7 +80,7 @@ func main() {
 		operations.GetBlock(conn),
 		getTip,
 		getBlock,
-		repository.AddBlocks(db),
+		repository.AddBlock(db),
 	); err != nil {
 		log.Fatalf("Failed to initialize node %s", err)
 	}
