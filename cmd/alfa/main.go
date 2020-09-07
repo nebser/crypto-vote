@@ -103,15 +103,13 @@ func main() {
 
 	getTip := repository.GetTip(db)
 	getBlock := repository.GetBlock(db)
-	saveNode := repository.SaveNode(db)
 	findBlock := blockchain.FindBlock(getTip, getBlock)
 	if *newOption {
 		if err := alfa.Initialize(
 			*masterWallet,
 			wallets,
 			repository.InitBlockchain(db),
-			repository.AddBlock(db),
-			saveNode); err != nil {
+			repository.AddBlock(db)); err != nil {
 			log.Fatal(err)
 		}
 	}

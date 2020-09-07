@@ -65,37 +65,3 @@ func saveUTXOS(tx *bolt.Tx, utxos []transaction.UTXO) error {
 	}
 	return nil
 }
-
-func saveUTXOs(transactions transaction.Transactions) func(*bolt.Tx) error {
-	return func(tx *bolt.Tx) error {
-		for _, transaction := range transactions {
-			utxos := transaction.UTXOs()
-			b := tx.Bucket(UTXOBucket())
-			if b == nil {
-				created, err := tx.CreateBucket(UTXOBucket())
-				if err != nil {
-					return errors.Wrapf(err, "Failed to create bucket %s", UTXOBucket())
-				}
-				b = created
-			}
-			for _, u := range utxos {
-				var saved []utxo
-				raw := b.Get(u.PublicKeyHash)
-				if raw != nil {
-					if err := json.Unmarshal(raw, &saved); err != nil {
-						return errors.Wrap(err, "Failed to unmarshal into utxo array")
-					}
-				}
-				saved = append(saved, newUTXO(u))
-				serialized, err := json.Marshal(saved)
-				if err != nil {
-					return errors.Wrapf(err, "Failed to serialize %#v", saved)
-				}
-				if err := b.Put(u.PublicKeyHash, serialized); err != nil {
-					return errors.Wrapf(err, "Failed to save utxo set for %x", u.PublicKeyHash)
-				}
-			}
-		}
-		return nil
-	}
-}

@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func Initialize(masterWallet wallet.Wallet, clientWallets wallet.Wallets, initBlockchain blockchain.InitBlockchainFn, addBlock blockchain.AddBlockFn, saveNode blockchain.SaveNodeFn) error {
+func Initialize(masterWallet wallet.Wallet, clientWallets wallet.Wallets, initBlockchain blockchain.InitBlockchainFn, addBlock blockchain.AddBlockFn) error {
 	genesisTransaction, err := transaction.NewBaseTransaction(masterWallet, masterWallet.Address)
 	if err != nil {
 		return errors.Wrap(err, "Failed to generate genesis transaction")
@@ -32,12 +32,6 @@ func Initialize(masterWallet wallet.Wallet, clientWallets wallet.Wallets, initBl
 	block, err := blockchain.NewBlock(tip, baseTransactions)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create block of base transactions")
-	}
-	if err := saveNode(blockchain.Node{
-		Type: blockchain.AlfaNodeType,
-		ID:   "0",
-	}); err != nil {
-		return errors.Wrap(err, "Failed to create record for alfa node")
 	}
 	if _, err := addBlock(*block); err != nil {
 		return errors.Wrapf(err, "Failed to add block %#v", *block)
