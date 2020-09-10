@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/nebser/crypto-vote/internal/pkg/api"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
+	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/pkg/errors"
 )
@@ -32,7 +34,7 @@ func (v voteBody) Signable() ([]byte, error) {
 	return json.Marshal(data)
 }
 
-func Vote(findBlock blockchain.FindBlockFn) api.Handler {
+func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote) api.Handler {
 	return func(request api.Request) (api.Response, error) {
 		var body voteBody
 		if err := json.Unmarshal(request.Body, &body); err != nil {
@@ -40,22 +42,26 @@ func Vote(findBlock blockchain.FindBlockFn) api.Handler {
 		}
 		rawPublicKey, err := base64.StdEncoding.DecodeString(body.Verifier)
 		if err != nil {
-			return api.UnauthorizedErrorResponse("Invalid public key provided"), nil
+			return api.InvalidDataErrorResponse("Invalid public key provided"), nil
 		}
 		rawSignature, err := base64.StdEncoding.DecodeString(body.Signature)
 		if err != nil {
-			return api.UnauthorizedErrorResponse("Invalid signature provided"), nil
+			return api.InvalidDataErrorResponse("Invalid signature provided"), nil
 		}
 		if !wallet.Verify(body, rawSignature, rawPublicKey) {
 			return api.UnauthorizedErrorResponse("Signature does not match the payload"), nil
 		}
-
-		publicKeyHashed, err := wallet.HashedPublicKey(rawPublicKey)
+		sender, err := base64.StdEncoding.DecodeString(body.Sender)
 		if err != nil {
-			return api.Response{}, errors.Wrapf(err, "Failed to hash public key")
+			return api.InvalidDataErrorResponse("Invalid sender provided"), nil
 		}
+		receiver, err := base64.StdEncoding.DecodeString(body.Recipient)
+		if err != nil {
+			return api.InvalidDataErrorResponse("Invalid recipient provided"), nil
+		}
+
 		criteria := func(b blockchain.Block) bool {
-			if _, ok := b.Body.Transactions.FindTransactionTo(publicKeyHashed); ok {
+			if _, ok := b.Body.Transactions.FindTransactionTo(sender); ok {
 				return true
 			}
 			return false
@@ -68,6 +74,15 @@ func Vote(findBlock blockchain.FindBlockFn) api.Handler {
 		default:
 			log.Println("Authorized successfully")
 		}
-		return api.Response{}, nil
+		switch err := castVote(sender, receiver, rawSignature); {
+		case err != nil && errors.Is(err, transaction.ErrInsufficientVotes):
+			return api.UserAlreadyVoted(), nil
+		case err != nil:
+			log.Printf("Error occurred while voting %s", err)
+			return api.Response{}, nil
+		}
+		return api.Response{
+			Status: http.StatusOK,
+		}, nil
 	}
 }

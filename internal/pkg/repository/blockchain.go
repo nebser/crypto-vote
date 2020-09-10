@@ -92,7 +92,7 @@ func AddBlock(db *bolt.DB) blockchain.AddBlockFn {
 				if err := deleteTransaction(tx, transaction); err != nil {
 					return err
 				}
-				if err := saveUTXOS(tx, transaction.UTXOs()); err != nil {
+				if err := saveUTXOs(tx, transaction.UTXOs()); err != nil {
 					return err
 				}
 			}

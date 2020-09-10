@@ -100,27 +100,70 @@ func newTransactionOutput(output transaction.Output) transactionOutput {
 	}
 }
 
-func SaveTransaction(db *bolt.DB) transaction.SaveTransaction {
-	return func(transaction transaction.Transaction) error {
+func CastVote(db *bolt.DB) transaction.CastVote {
+	return func(from, to, signature []byte) error {
 		return db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket(transactionsBucket())
-			if b == nil {
-				created, err := tx.CreateBucket(transactionsBucket())
-				if err != nil {
-					return errors.Wrapf(err, "Failed to create bucket %s", transactionsBucket())
-				}
-				b = created
+			utxos, err := getUTXOs(tx, from)
+			switch {
+			case err != nil:
+				return errors.Wrapf(err, "Failed to retrieve utxos for %x", from)
+			case len(utxos) == 0:
+				return transaction.ErrInsufficientVotes
 			}
-			raw, err := json.Marshal(newTX(transaction))
+			usedUTXO := utxos[0]
+			inputs := transaction.Inputs{transaction.Input{
+				PublicKeyHash: from,
+				Signature:     signature,
+				TransactionID: usedUTXO.TransactionID,
+				Vout:          usedUTXO.Vout,
+			}}
+			outputs := transaction.Outputs{
+				transaction.Output{
+					PublicKeyHash: to,
+					Value:         1,
+				},
+			}
+			if usedUTXO.Value > 1 {
+				outputs = append(outputs, transaction.Output{
+					PublicKeyHash: from,
+					Value:         usedUTXO.Value - 1,
+				})
+			}
+			tr, err := transaction.NewTransaction(inputs, outputs)
 			if err != nil {
-				return errors.Wrapf(err, "Failed to serialize transaction %#v", transactionsBucket())
+				return errors.Wrap(err, "Failed to create new transaction")
 			}
-			if err := b.Put(transaction.ID, raw); err != nil {
-				return errors.Wrapf(err, "Failed to save transaction %s", transaction)
+			if err := overwriteUTXOs(tx, usedUTXO.PublicKeyHash, transaction.UTXOs{usedUTXO}); err != nil {
+				return errors.Wrap(err, "Failed to overwrite transaction")
+			}
+			if err := saveTransaction(tx, *tr); err != nil {
+				return errors.Wrap(err, "Failed to save transaction")
+			}
+			if err := saveUTXOs(tx, tr.UTXOs()); err != nil {
+				return errors.Wrap(err, "Failed to save UTXOs")
 			}
 			return nil
 		})
 	}
+}
+
+func saveTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
+	b := tx.Bucket(transactionsBucket())
+	if b == nil {
+		created, err := tx.CreateBucket(transactionsBucket())
+		if err != nil {
+			return errors.Wrapf(err, "Failed to create bucket %s", transactionsBucket())
+		}
+		b = created
+	}
+	raw, err := json.Marshal(newTX(transaction))
+	if err != nil {
+		return errors.Wrapf(err, "Failed to serialize transaction %#v", transactionsBucket())
+	}
+	if err := b.Put(transaction.ID, raw); err != nil {
+		return errors.Wrapf(err, "Failed to save transaction %s", transaction)
+	}
+	return nil
 }
 
 func deleteTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {

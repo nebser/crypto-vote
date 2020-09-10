@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type SaveTransaction func(Transaction) error
+type CastVote func(from, to, signature []byte) error
 
 type DeleteTransaction func(Transaction) error
 
@@ -20,6 +20,8 @@ type Transaction struct {
 	Inputs  Inputs  `json:"inputs"`
 	Outputs Outputs `json:"outputs"`
 }
+
+var ErrInsufficientVotes = errors.New("Not enough votes available")
 
 func (tx Transaction) String() string {
 	builder := strings.Builder{}
@@ -111,11 +113,12 @@ func (t Transaction) IsBase() bool {
 }
 
 func (t Transaction) UTXOs() (utxos []UTXO) {
-	for _, out := range t.Outputs {
+	for i, out := range t.Outputs {
 		utxos = append(utxos, UTXO{
 			PublicKeyHash: out.PublicKeyHash,
 			TransactionID: t.ID,
 			Value:         out.Value,
+			Vout:          i,
 		})
 	}
 	return

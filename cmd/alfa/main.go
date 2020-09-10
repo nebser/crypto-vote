@@ -126,8 +126,9 @@ func main() {
 	go http.ListenAndServe(":10000", nil)
 
 	httpRouter := mux.NewRouter()
-	httpRouter.HandleFunc("/vote", api.NewHandleFunc(handlers.Vote(findBlock))).Methods("POST")
-	http.Handle("/elections", httpRouter)
-	http.ListenAndServe(":8000", nil)
+	httpRouter.HandleFunc("/vote", api.NewHandleFunc(handlers.Vote(findBlock, repository.CastVote(db)))).Methods("POST")
+	mux := http.NewServeMux()
+	mux.Handle("/", httpRouter)
+	http.ListenAndServe(":8000", mux)
 
 }

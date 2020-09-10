@@ -64,6 +64,23 @@ func (w Wallet) Export(filePrefix string) error {
 	return nil
 }
 
+func LoadPublicKey(fileName string) ([]byte, error) {
+	publicKeyContent, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to read public key")
+	}
+	publicKeyBlock, _ := pem.Decode([]byte(publicKeyContent))
+	rawPublicKey, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to parse public key")
+	}
+	publicKey, ok := rawPublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.Errorf("Failed to case %#v to public key", rawPublicKey)
+	}
+	return append(publicKey.X.Bytes(), publicKey.Y.Bytes()...), nil
+}
+
 func Import(keyfiles keyfiles.KeyFiles) (*Wallet, error) {
 	publicKeyContent, err := ioutil.ReadFile(keyfiles.PublicKeyFile)
 	if err != nil {

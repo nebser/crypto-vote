@@ -13,9 +13,12 @@ type utxo struct {
 	PublicKeyHash string `json:"publicKeyHash"`
 	TransactionID string `json:"transactionId"`
 	Value         int    `json:"value"`
+	Vout          int    `json:"vout"`
 }
 
-func UTXOBucket() []byte {
+type utxos []utxo
+
+func utxoBucket() []byte {
 	return []byte("utxos")
 }
 
@@ -24,6 +27,7 @@ func newUTXO(u transaction.UTXO) utxo {
 		TransactionID: base64.StdEncoding.EncodeToString(u.TransactionID),
 		PublicKeyHash: base64.StdEncoding.EncodeToString(u.PublicKeyHash),
 		Value:         u.Value,
+		Vout:          u.Vout,
 	}
 }
 
@@ -34,15 +38,32 @@ func (u utxo) toUTXO() transaction.UTXO {
 		TransactionID: id,
 		PublicKeyHash: publicKeyHash,
 		Value:         u.Value,
+		Vout:          u.Vout,
 	}
 }
 
-func saveUTXOS(tx *bolt.Tx, utxos []transaction.UTXO) error {
-	b := tx.Bucket(UTXOBucket())
+func newUTXOs(ut transaction.UTXOs) utxos {
+	result := utxos{}
+	for _, u := range ut {
+		result = append(result, newUTXO(u))
+	}
+	return result
+}
+
+func (ut utxos) toUTXOs() transaction.UTXOs {
+	result := transaction.UTXOs{}
+	for _, u := range ut {
+		result = append(result, u.toUTXO())
+	}
+	return result
+}
+
+func saveUTXOs(tx *bolt.Tx, utxos transaction.UTXOs) error {
+	b := tx.Bucket(utxoBucket())
 	if b == nil {
-		created, err := tx.CreateBucket(UTXOBucket())
+		created, err := tx.CreateBucket(utxoBucket())
 		if err != nil {
-			return errors.Wrapf(err, "Failed to create bucket %s", UTXOBucket())
+			return errors.Wrapf(err, "Failed to create bucket %s", utxoBucket())
 		}
 		b = created
 	}
@@ -62,6 +83,37 @@ func saveUTXOS(tx *bolt.Tx, utxos []transaction.UTXO) error {
 		if err := b.Put(u.PublicKeyHash, serialized); err != nil {
 			return errors.Wrapf(err, "Failed to save utxo set for %x", u.PublicKeyHash)
 		}
+	}
+	return nil
+}
+
+func getUTXOs(tx *bolt.Tx, publicKeyHash []byte) (transaction.UTXOs, error) {
+	b := tx.Bucket(utxoBucket())
+	if b == nil {
+		return nil, nil
+	}
+	raw := b.Get(publicKeyHash)
+	if raw == nil {
+		return nil, nil
+	}
+	var utxos utxos
+	if err := json.Unmarshal(raw, &utxos); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal utxos")
+	}
+	return utxos.toUTXOs(), nil
+}
+
+func overwriteUTXOs(tx *bolt.Tx, publicKeyHash []byte, utxos transaction.UTXOs) error {
+	b := tx.Bucket(utxoBucket())
+	if b == nil {
+		return errors.New("UTXO bucket does not exist")
+	}
+	raw, err := json.Marshal(newUTXOs(utxos))
+	if err != nil {
+		return errors.Wrapf(err, "Failed to marshal utxo %#v", utxos)
+	}
+	if err := b.Put(publicKeyHash, raw); err != nil {
+		return errors.Wrapf(err, "Failed to store utxo %#v", utxos)
 	}
 	return nil
 }

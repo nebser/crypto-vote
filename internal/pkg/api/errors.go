@@ -48,3 +48,13 @@ func UnauthorizedErrorResponse(message string) Response {
 		},
 	}
 }
+
+func UserAlreadyVoted() Response {
+	return Response{
+		Status: http.StatusConflict,
+		Body: Error{
+			Message: "User already voted",
+			Type:    "user-already-voted",
+		},
+	}
+}
