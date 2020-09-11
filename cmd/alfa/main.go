@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/nebser/crypto-vote/internal/pkg/api"
 
@@ -101,9 +102,6 @@ func main() {
 		log.Fatalf("Failed to wallets %s", err)
 	}
 
-	getTip := repository.GetTip(db)
-	getBlock := repository.GetBlock(db)
-	findBlock := blockchain.FindBlock(getTip, getBlock)
 	if *newOption {
 		if err := alfa.Initialize(
 			*masterWallet,
@@ -113,22 +111,40 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	blockchain.PrintBlockchain(getTip, getBlock)
-	authorizer := blockchain.BlockchainAuthorizer(findBlock)
+	blockchain.PrintBlockchain(repository.GetTip(db), repository.GetBlock(db))
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 	hub := websocket.NewHub()
+	go runSocketServer(&wg, db, hub)
+	go runAPIServer(&wg, db, hub)
+	wg.Wait()
+}
+
+func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
+	defer wg.Done()
+	getTip := repository.GetTip(db)
+	getBlock := repository.GetBlock(db)
+	findBlock := blockchain.FindBlock(getTip, getBlock)
+	authorizer := blockchain.BlockchainAuthorizer(findBlock)
 	router := websocket.Router{
 		websocket.GetBlockchainHeightMessage: handlers.GetHeightHandler(getTip, getBlock),
 		websocket.GetMissingBlocksMessage:    handlers.GetMissingBlocks(getTip, getBlock),
 		websocket.GetBlockMessage:            handlers.GetBlock(getBlock),
 		websocket.RegisterMessage:            handlers.Register(hub).Authorized(authorizer),
 	}
-	http.Handle("/", websocket.PingPongConnection(router, hub))
-	go http.ListenAndServe(":10000", nil)
-
-	httpRouter := mux.NewRouter()
-	httpRouter.HandleFunc("/vote", api.NewHandleFunc(handlers.Vote(findBlock, repository.CastVote(db)))).Methods("POST")
 	mux := http.NewServeMux()
-	mux.Handle("/", httpRouter)
-	http.ListenAndServe(":8000", mux)
+	mux.Handle("/", websocket.PingPongConnection(router, hub))
+	http.ListenAndServe(":10000", mux)
+}
 
+func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
+	getTip := repository.GetTip(db)
+	getBlock := repository.GetBlock(db)
+	findBlock := blockchain.FindBlock(getTip, getBlock)
+	httpRouter := mux.NewRouter()
+	httpRouter.
+		HandleFunc("/vote", api.NewHandleFunc(handlers.Vote(findBlock, repository.CastVote(db)))).Methods("POST")
+	serverMux := http.NewServeMux()
+	serverMux.Handle("/", httpRouter)
+	http.ListenAndServe(":8000", serverMux)
 }
