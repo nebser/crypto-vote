@@ -74,7 +74,7 @@ func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote) api.H
 		default:
 			log.Println("Authorized successfully")
 		}
-		switch err := castVote(sender, receiver, rawSignature); {
+		switch err := castVote(sender, receiver, rawSignature, rawPublicKey); {
 		case err != nil && errors.Is(err, transaction.ErrInsufficientVotes):
 			return api.UserAlreadyVoted(), nil
 		case err != nil:

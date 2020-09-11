@@ -57,17 +57,20 @@ type transactionInput struct {
 	Vout          int    `json:"vout"`
 	PublicKeyHash string `json:"publicKeyHash"`
 	Signature     string `json:"signature"`
+	Verifier      string `json:"verifier"`
 }
 
 func (ti transactionInput) toInput() transaction.Input {
 	transactionID, _ := base64.StdEncoding.DecodeString(ti.TransactionID)
 	publicKeyHash, _ := base64.StdEncoding.DecodeString(ti.PublicKeyHash)
 	signature, _ := base64.StdEncoding.DecodeString(ti.Signature)
+	verifier, _ := base64.StdEncoding.DecodeString(ti.Verifier)
 	return transaction.Input{
 		TransactionID: transactionID,
 		Vout:          ti.Vout,
 		PublicKeyHash: publicKeyHash,
 		Signature:     signature,
+		Verifier:      verifier,
 	}
 }
 
@@ -77,6 +80,7 @@ func newTransactionInput(input transaction.Input) transactionInput {
 		Vout:          input.Vout,
 		PublicKeyHash: base64.StdEncoding.EncodeToString(input.PublicKeyHash),
 		Signature:     base64.StdEncoding.EncodeToString(input.Signature),
+		Verifier:      base64.StdEncoding.EncodeToString(input.Verifier),
 	}
 }
 
@@ -101,7 +105,7 @@ func newTransactionOutput(output transaction.Output) transactionOutput {
 }
 
 func CastVote(db *bolt.DB) transaction.CastVote {
-	return func(from, to, signature []byte) error {
+	return func(from, to, signature, verifier []byte) error {
 		return db.Update(func(tx *bolt.Tx) error {
 			utxos, err := getUTXOs(tx, from)
 			switch {
@@ -111,12 +115,15 @@ func CastVote(db *bolt.DB) transaction.CastVote {
 				return transaction.ErrInsufficientVotes
 			}
 			usedUTXO := utxos[0]
-			inputs := transaction.Inputs{transaction.Input{
-				PublicKeyHash: from,
-				Signature:     signature,
-				TransactionID: usedUTXO.TransactionID,
-				Vout:          usedUTXO.Vout,
-			}}
+			inputs := transaction.Inputs{
+				{
+					PublicKeyHash: from,
+					Signature:     signature,
+					TransactionID: usedUTXO.TransactionID,
+					Vout:          usedUTXO.Vout,
+					Verifier:      verifier,
+				},
+			}
 			outputs := transaction.Outputs{
 				transaction.Output{
 					PublicKeyHash: to,

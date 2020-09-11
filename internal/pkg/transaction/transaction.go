@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type CastVote func(from, to, signature []byte) error
+type CastVote func(from, to, signature, verifier []byte) error
 
 type DeleteTransaction func(Transaction) error
 
@@ -95,6 +95,7 @@ func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transa
 			Vout:          -1,
 			PublicKeyHash: creator.PublicKeyHash(),
 			Signature:     signature,
+			Verifier:      creator.PublicKey,
 		},
 	}
 	id, err := newID(inputs, outputs)
