@@ -140,7 +140,7 @@ func CastVote(db *bolt.DB) transaction.CastVote {
 			if err != nil {
 				return errors.Wrap(err, "Failed to create new transaction")
 			}
-			if err := overwriteUTXOs(tx, usedUTXO.PublicKeyHash, transaction.UTXOs{usedUTXO}); err != nil {
+			if err := deleteUTXO(tx, usedUTXO); err != nil {
 				return errors.Wrap(err, "Failed to overwrite transaction")
 			}
 			if err := saveTransaction(tx, *tr); err != nil {

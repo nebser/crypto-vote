@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 
@@ -103,16 +104,23 @@ func getUTXOs(tx *bolt.Tx, publicKeyHash []byte) (transaction.UTXOs, error) {
 	return utxos.toUTXOs(), nil
 }
 
-func overwriteUTXOs(tx *bolt.Tx, publicKeyHash []byte, utxos transaction.UTXOs) error {
+func deleteUTXO(tx *bolt.Tx, utxo transaction.UTXO) error {
 	b := tx.Bucket(utxoBucket())
 	if b == nil {
-		return errors.New("UTXO bucket does not exist")
+		return nil
 	}
-	raw, err := json.Marshal(newUTXOs(utxos))
+	utxos, err := getUTXOs(tx, utxo.PublicKeyHash)
+	if err != nil {
+		return errors.Wrap(err, "Failed to retrieve utxo for deletion")
+	}
+	updated := utxos.Filter(func(u transaction.UTXO) bool {
+		return bytes.Compare(utxo.TransactionID, u.TransactionID) != 0
+	})
+	raw, err := json.Marshal(newUTXOs(updated))
 	if err != nil {
 		return errors.Wrapf(err, "Failed to marshal utxo %#v", utxos)
 	}
-	if err := b.Put(publicKeyHash, raw); err != nil {
+	if err := b.Put(utxo.PublicKeyHash, raw); err != nil {
 		return errors.Wrapf(err, "Failed to store utxo %#v", utxos)
 	}
 	return nil

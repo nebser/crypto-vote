@@ -81,6 +81,7 @@ func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote) api.H
 			log.Printf("Error occurred while voting %s", err)
 			return api.Response{}, nil
 		}
+		log.Println("VOTED SUCCESSFULLY")
 		return api.Response{
 			Status: http.StatusOK,
 		}, nil

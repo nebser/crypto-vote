@@ -15,6 +15,7 @@ const (
 	RegisterMessage
 	ErrorMessage
 	ResponseMessage
+	TransactionReceivedMessage
 )
 
 func (m Message) String() string {
@@ -33,6 +34,8 @@ func (m Message) String() string {
 		return "error"
 	case ResponseMessage:
 		return "response"
+	case TransactionReceivedMessage:
+		return "transaction-received"
 	default:
 		return fmt.Sprintf("Unknown message %d", m)
 	}
