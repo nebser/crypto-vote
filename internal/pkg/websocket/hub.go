@@ -17,6 +17,8 @@ type Hub struct {
 	registerLock *sync.Mutex
 }
 
+type BroadcastFn func(Pong) int
+
 func NewHub() Hub {
 	return Hub{
 		receivers:    make(map[string]node),

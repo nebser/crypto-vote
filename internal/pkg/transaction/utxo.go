@@ -19,6 +19,13 @@ func (utxos UTXOs) Filter(criteria func(UTXO) bool) UTXOs {
 	return result
 }
 
+func (utxos UTXOs) Sum() (sum int) {
+	for _, u := range utxos {
+		sum += u.Value
+	}
+	return
+}
+
 type SaveUTXO func(UTXO) error
 
 type GetUTXOS func(publicKeyHash []byte) ([]UTXO, error)

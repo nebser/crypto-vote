@@ -19,8 +19,12 @@ type utxo struct {
 
 type utxos []utxo
 
-func utxoBucket() []byte {
-	return []byte("utxos")
+func utxoByPublicKeyBucket() []byte {
+	return []byte("utxos-by-pkey")
+}
+
+func utxoByTxBucket() []byte {
+	return []byte("utxos-by-tx")
 }
 
 func newUTXO(u transaction.UTXO) utxo {
@@ -59,12 +63,12 @@ func (ut utxos) toUTXOs() transaction.UTXOs {
 	return result
 }
 
-func saveUTXOs(tx *bolt.Tx, utxos transaction.UTXOs) error {
-	b := tx.Bucket(utxoBucket())
+func saveUTXOsByPublicKey(tx *bolt.Tx, utxos transaction.UTXOs) error {
+	b := tx.Bucket(utxoByPublicKeyBucket())
 	if b == nil {
-		created, err := tx.CreateBucket(utxoBucket())
+		created, err := tx.CreateBucket(utxoByPublicKeyBucket())
 		if err != nil {
-			return errors.Wrapf(err, "Failed to create bucket %s", utxoBucket())
+			return errors.Wrapf(err, "Failed to create bucket %s", utxoByPublicKeyBucket())
 		}
 		b = created
 	}
@@ -88,8 +92,47 @@ func saveUTXOs(tx *bolt.Tx, utxos transaction.UTXOs) error {
 	return nil
 }
 
-func getUTXOs(tx *bolt.Tx, publicKeyHash []byte) (transaction.UTXOs, error) {
-	b := tx.Bucket(utxoBucket())
+func saveUTXOsByTransactionID(tx *bolt.Tx, utxos transaction.UTXOs) error {
+	b := tx.Bucket(utxoByTxBucket())
+	if b == nil {
+		created, err := tx.CreateBucket(utxoByTxBucket())
+		if err != nil {
+			return errors.Wrapf(err, "Failed to create bucket %s", utxoByTxBucket())
+		}
+		b = created
+	}
+	for _, u := range utxos {
+		var saved []utxo
+		raw := b.Get(u.TransactionID)
+		if raw != nil {
+			if err := json.Unmarshal(raw, &saved); err != nil {
+				return errors.Wrap(err, "Failed to unmarshal into utxo array")
+			}
+		}
+		saved = append(saved, newUTXO(u))
+		serialized, err := json.Marshal(saved)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to serialize %#v", saved)
+		}
+		if err := b.Put(u.TransactionID, serialized); err != nil {
+			return errors.Wrapf(err, "Failed to save utxo set for tx id %x", u.TransactionID)
+		}
+	}
+	return nil
+}
+
+func saveUTXOs(tx *bolt.Tx, utxos transaction.UTXOs) error {
+	if err := saveUTXOsByPublicKey(tx, utxos); err != nil {
+		return errors.Wrap(err, "Failed to save utxo by public key")
+	}
+	if err := saveUTXOsByTransactionID(tx, utxos); err != nil {
+		return errors.Wrap(err, "Failed to save utxo by transaction id")
+	}
+	return nil
+}
+
+func getUTXOsByPublicKey(tx *bolt.Tx, publicKeyHash []byte) (transaction.UTXOs, error) {
+	b := tx.Bucket(utxoByPublicKeyBucket())
 	if b == nil {
 		return nil, nil
 	}
@@ -104,12 +147,28 @@ func getUTXOs(tx *bolt.Tx, publicKeyHash []byte) (transaction.UTXOs, error) {
 	return utxos.toUTXOs(), nil
 }
 
-func deleteUTXO(tx *bolt.Tx, utxo transaction.UTXO) error {
-	b := tx.Bucket(utxoBucket())
+func getUTXOByTransactionID(tx *bolt.Tx, transactionID []byte) (transaction.UTXOs, error) {
+	b := tx.Bucket(utxoByTxBucket())
+	if b == nil {
+		return nil, nil
+	}
+	raw := b.Get(transactionID)
+	if raw == nil {
+		return nil, nil
+	}
+	var utxos utxos
+	if err := json.Unmarshal(raw, &utxos); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal utxos")
+	}
+	return utxos.toUTXOs(), nil
+}
+
+func deleteUTXOByPublicKey(tx *bolt.Tx, utxo transaction.UTXO) error {
+	b := tx.Bucket(utxoByPublicKeyBucket())
 	if b == nil {
 		return nil
 	}
-	utxos, err := getUTXOs(tx, utxo.PublicKeyHash)
+	utxos, err := getUTXOsByPublicKey(tx, utxo.PublicKeyHash)
 	if err != nil {
 		return errors.Wrap(err, "Failed to retrieve utxo for deletion")
 	}
@@ -122,6 +181,38 @@ func deleteUTXO(tx *bolt.Tx, utxo transaction.UTXO) error {
 	}
 	if err := b.Put(utxo.PublicKeyHash, raw); err != nil {
 		return errors.Wrapf(err, "Failed to store utxo %#v", utxos)
+	}
+	return nil
+}
+
+func deleteUTXOsByTransactionID(tx *bolt.Tx, utxo transaction.UTXO) error {
+	b := tx.Bucket(utxoByPublicKeyBucket())
+	if b == nil {
+		return nil
+	}
+	utxos, err := getUTXOByTransactionID(tx, utxo.TransactionID)
+	if err != nil {
+		return errors.Wrap(err, "Failed to retrieve utxo for deletion")
+	}
+	updated := utxos.Filter(func(u transaction.UTXO) bool {
+		return u.Vout != utxo.Vout || bytes.Compare(utxo.PublicKeyHash, u.PublicKeyHash) != 0
+	})
+	raw, err := json.Marshal(newUTXOs(updated))
+	if err != nil {
+		return errors.Wrapf(err, "Failed to marshal utxo %#v", utxos)
+	}
+	if err := b.Put(utxo.TransactionID, raw); err != nil {
+		return errors.Wrapf(err, "Failed to store utxo %#v", utxos)
+	}
+	return nil
+}
+
+func deleteUTXO(tx *bolt.Tx, utxo transaction.UTXO) error {
+	if err := deleteUTXOByPublicKey(tx, utxo); err != nil {
+		return errors.Wrap(err, "Failed to delete transaction by public key")
+	}
+	if err := deleteUTXOsByTransactionID(tx, utxo); err != nil {
+		return errors.Wrap(err, "Failed to delete transaction by transaction id")
 	}
 	return nil
 }

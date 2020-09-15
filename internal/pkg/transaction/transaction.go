@@ -11,7 +11,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-type CastVote func(from, to, signature, verifier []byte) error
+type CastVote func(from, to, signature, verifier []byte) (Transaction, error)
+
+type SaveTransaction func(Transaction) error
 
 type DeleteTransaction func(Transaction) error
 

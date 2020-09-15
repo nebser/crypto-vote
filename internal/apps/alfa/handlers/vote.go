@@ -11,6 +11,7 @@ import (
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
+	"github.com/nebser/crypto-vote/internal/pkg/websocket"
 	"github.com/pkg/errors"
 )
 
@@ -34,7 +35,7 @@ func (v voteBody) Signable() ([]byte, error) {
 	return json.Marshal(data)
 }
 
-func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote) api.Handler {
+func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote, broadcast websocket.BroadcastFn) api.Handler {
 	return func(request api.Request) (api.Response, error) {
 		var body voteBody
 		if err := json.Unmarshal(request.Body, &body); err != nil {
@@ -74,7 +75,8 @@ func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote) api.H
 		default:
 			log.Println("Authorized successfully")
 		}
-		switch err := castVote(sender, receiver, rawSignature, rawPublicKey); {
+		tr, err := castVote(sender, receiver, rawSignature, rawPublicKey)
+		switch {
 		case err != nil && errors.Is(err, transaction.ErrInsufficientVotes):
 			return api.UserAlreadyVoted(), nil
 		case err != nil:
@@ -82,6 +84,10 @@ func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote) api.H
 			return api.Response{}, nil
 		}
 		log.Println("VOTED SUCCESSFULLY")
+		broadcast(websocket.Pong{
+			Message: websocket.TransactionReceivedMessage,
+			Body:    tr,
+		})
 		return api.Response{
 			Status: http.StatusOK,
 		}, nil

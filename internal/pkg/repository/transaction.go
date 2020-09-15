@@ -105,9 +105,10 @@ func newTransactionOutput(output transaction.Output) transactionOutput {
 }
 
 func CastVote(db *bolt.DB) transaction.CastVote {
-	return func(from, to, signature, verifier []byte) error {
-		return db.Update(func(tx *bolt.Tx) error {
-			utxos, err := getUTXOs(tx, from)
+	return func(from, to, signature, verifier []byte) (transaction.Transaction, error) {
+		var result transaction.Transaction
+		err := db.Update(func(tx *bolt.Tx) error {
+			utxos, err := getUTXOsByPublicKey(tx, from)
 			switch {
 			case err != nil:
 				return errors.Wrapf(err, "Failed to retrieve utxos for %x", from)
@@ -149,8 +150,10 @@ func CastVote(db *bolt.DB) transaction.CastVote {
 			if err := saveUTXOs(tx, tr.UTXOs()); err != nil {
 				return errors.Wrap(err, "Failed to save UTXOs")
 			}
+			result = *tr
 			return nil
 		})
+		return result, err
 	}
 }
 
@@ -171,6 +174,24 @@ func saveTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
 		return errors.Wrapf(err, "Failed to save transaction %s", transaction)
 	}
 	return nil
+}
+
+func SaveTransaction(db *bolt.DB) transaction.SaveTransaction {
+	return func(transaction transaction.Transaction) error {
+		return db.Update(func(tx *bolt.Tx) error {
+			for _, in := range transaction.Inputs {
+				utxos, err := getUTXOs(tx, in.PublicKeyHash)
+				if err != nil {
+					return errors.Wrapf(err, "Failed to retrieve utxos for %s", in.PublicKeyHash)
+				}
+				if utxos.Sum() < in.V
+			}
+			if err != nil {
+
+			}
+			return nil
+		})
+	}
 }
 
 func deleteTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
