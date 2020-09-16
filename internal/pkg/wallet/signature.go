@@ -57,16 +57,29 @@ func hash(data []byte) []byte {
 	return hashed[:]
 }
 
-type SignerFn func(Signable) (signature, verifier string, err error)
+type Signer interface {
+	Sign(Signable) (string, error)
+	Verifier() string
+}
 
-func WalletSigner(wallet Wallet) SignerFn {
-	return func(signable Signable) (string, string, error) {
-		signature, err := Sign(signable, wallet.PrivateKey)
-		if err != nil {
-			return "", "", errors.Wrapf(err, "Failed to create signature for %#v", signable)
-		}
-		return base64.StdEncoding.EncodeToString(signature), base64.StdEncoding.EncodeToString(wallet.PublicKey), nil
+type walletSigner struct {
+	wallet Wallet
+}
+
+func (w walletSigner) Sign(signable Signable) (string, error) {
+	signature, err := Sign(signable, w.wallet.PrivateKey)
+	if err != nil {
+		return "", errors.Wrapf(err, "Failed to create signature for %#v", signable)
 	}
+	return base64.StdEncoding.EncodeToString(signature), nil
+}
+
+func (w walletSigner) Verifier() string {
+	return base64.StdEncoding.EncodeToString(w.wallet.PublicKey)
+}
+
+func NewSigner(wallet Wallet) Signer {
+	return walletSigner{wallet: wallet}
 }
 
 type VerifierFn func(data Signable, signature, publicKey string) (bool, error)

@@ -149,7 +149,7 @@ func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub, w wallet.W
 					findBlock,
 					repository.CastVote(db),
 					hub.Broadcast,
-					wallet.WalletSigner(w),
+					wallet.NewSigner(w),
 				),
 			),
 		).Methods("POST")

@@ -35,7 +35,7 @@ func (v voteBody) Signable() ([]byte, error) {
 	return json.Marshal(data)
 }
 
-func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote, broadcast websocket.BroadcastFn, signer wallet.SignerFn) api.Handler {
+func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote, broadcast websocket.BroadcastFn, signer wallet.Signer) api.Handler {
 	return func(request api.Request) (api.Response, error) {
 		var body voteBody
 		if err := json.Unmarshal(request.Body, &body); err != nil {

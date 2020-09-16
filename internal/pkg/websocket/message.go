@@ -89,20 +89,16 @@ func (p Pong) Signable() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func (p Pong) Signed(signer wallet.SignerFn) (Pong, error) {
-	_, sender, err := signer(p)
-	if err != nil {
-		return p, errors.Wrapf(err, "Failed to sign pong %#v", p)
-	}
-	p.Sender = sender
-	signature, _, err := signer(p)
+func (p Pong) Signed(signer wallet.Signer) (Pong, error) {
+	p.Sender = signer.Verifier()
+	signature, err := signer.Sign(p)
 	if err != nil {
 		return p, errors.Wrapf(err, "Failed to sign pong %#v", p)
 	}
 	return Pong{
 		Body:      p.Body,
 		Message:   p.Message,
-		Sender:    sender,
+		Sender:    p.Sender,
 		Signature: signature,
 	}, nil
 }
