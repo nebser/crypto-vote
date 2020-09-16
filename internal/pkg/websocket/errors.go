@@ -5,11 +5,12 @@ import (
 )
 
 const (
-	UnknownMessageErrorName = "message-unknown"
-	UnknownErrorName        = "unknown-error"
-	UnauthorizedErrorName   = "unauthorized"
-	BlockNotFoundErrorName  = "block-not-found"
-	InvalidDataErrorName    = "invalid-data"
+	UnknownMessageErrorName     = "message-unknown"
+	UnknownErrorName            = "unknown-error"
+	UnauthorizedErrorName       = "unauthorized"
+	BlockNotFoundErrorName      = "block-not-found"
+	InvalidDataErrorName        = "invalid-data"
+	InvalidTransactionErrorName = "invalid-transaction"
 )
 
 type Error struct {
@@ -49,5 +50,12 @@ func NewUnknownMessageError(message Message) Error {
 	return Error{
 		Name:    UnknownMessageErrorName,
 		Message: fmt.Sprintf("Unknown message %s", message),
+	}
+}
+
+func NewInvalidTransactionError() Error {
+	return Error{
+		Name:    InvalidTransactionErrorName,
+		Message: "Invalid transaction signature",
 	}
 }

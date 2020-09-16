@@ -163,6 +163,28 @@ func getUTXOByTransactionID(tx *bolt.Tx, transactionID []byte) (transaction.UTXO
 	return utxos.toUTXOs(), nil
 }
 
+func getTransactionUTXO(tx *bolt.Tx, transactionID []byte, vout int) (*transaction.UTXO, error) {
+	b := tx.Bucket(utxoByTxBucket())
+	if b == nil {
+		return nil, nil
+	}
+	raw := b.Get(transactionID)
+	if raw == nil {
+		return nil, nil
+	}
+	var utxos utxos
+	if err := json.Unmarshal(raw, &utxos); err != nil {
+		return nil, errors.Wrap(err, "Failed to unmarshal utxos")
+	}
+	for _, utxo := range utxos {
+		if utxo.Vout == vout {
+			val := utxo.toUTXO()
+			return &val, nil
+		}
+	}
+	return nil, nil
+}
+
 func deleteUTXOByPublicKey(tx *bolt.Tx, utxo transaction.UTXO) error {
 	b := tx.Bucket(utxoByPublicKeyBucket())
 	if b == nil {
@@ -185,7 +207,7 @@ func deleteUTXOByPublicKey(tx *bolt.Tx, utxo transaction.UTXO) error {
 	return nil
 }
 
-func deleteUTXOsByTransactionID(tx *bolt.Tx, utxo transaction.UTXO) error {
+func deleteUTXOByTransactionID(tx *bolt.Tx, utxo transaction.UTXO) error {
 	b := tx.Bucket(utxoByPublicKeyBucket())
 	if b == nil {
 		return nil
@@ -211,7 +233,7 @@ func deleteUTXO(tx *bolt.Tx, utxo transaction.UTXO) error {
 	if err := deleteUTXOByPublicKey(tx, utxo); err != nil {
 		return errors.Wrap(err, "Failed to delete transaction by public key")
 	}
-	if err := deleteUTXOsByTransactionID(tx, utxo); err != nil {
+	if err := deleteUTXOByTransactionID(tx, utxo); err != nil {
 		return errors.Wrap(err, "Failed to delete transaction by transaction id")
 	}
 	return nil

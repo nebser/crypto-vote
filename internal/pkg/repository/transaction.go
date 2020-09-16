@@ -177,17 +177,27 @@ func saveTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
 }
 
 func SaveTransaction(db *bolt.DB) transaction.SaveTransaction {
-	return func(transaction transaction.Transaction) error {
+	return func(tr transaction.Transaction) error {
 		return db.Update(func(tx *bolt.Tx) error {
-			for _, in := range transaction.Inputs {
-				utxos, err := getUTXOs(tx, in.PublicKeyHash)
-				if err != nil {
-					return errors.Wrapf(err, "Failed to retrieve utxos for %s", in.PublicKeyHash)
+			sum := 0
+			for _, in := range tr.Inputs {
+				utxo, err := getTransactionUTXO(tx, in.TransactionID, in.Vout)
+				switch {
+				case err != nil:
+					return errors.Wrapf(err, "Failed to get transaction utxo %x %d", in.TransactionID, in.Vout)
+				case utxo == nil:
+					return transaction.ErrUTXONotFound
 				}
-				if utxos.Sum() < in.V
+				if err := deleteUTXO(tx, *utxo); err != nil {
+					return errors.Wrapf(err, "Failed to delete utxo %#v", *utxo)
+				}
+				if err := saveTransaction(tx, tr); err != nil {
+					return errors.Wrapf(err, "Failed to save transaction %s", tr)
+				}
+				sum += utxo.Value
 			}
-			if err != nil {
-
+			if sum != tr.Outputs.Sum() {
+				return errors.Errorf("Sums of inputs (%d) and outputs (%d)", sum, tr.Outputs.Sum())
 			}
 			return nil
 		})

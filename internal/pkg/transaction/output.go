@@ -15,3 +15,10 @@ func (outs Outputs) Find(criteria func(Output) bool) (Output, bool) {
 	}
 	return Output{}, false
 }
+
+func (outs Outputs) Sum() (sum int) {
+	for _, out := range outs {
+		sum += out.Value
+	}
+	return sum
+}

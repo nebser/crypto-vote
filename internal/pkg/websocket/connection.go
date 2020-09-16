@@ -38,8 +38,12 @@ func reader(conn *websocket.Conn, id string, hub Hub, router Router, responseCha
 		if ping.Message == CloseConnectionMessage {
 			return
 		}
+		if ping.Message == ErrorMessage {
+			log.Printf("Received error message %s\n", ping.Body)
+			continue
+		}
 		pong := router.Route(ping, id)
-		if pong != nil {
+		if pong != nil && pong.Message != NoActionMessage {
 			responseChan <- *pong
 		}
 	}

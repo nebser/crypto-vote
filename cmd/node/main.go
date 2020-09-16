@@ -41,7 +41,7 @@ func main() {
 	}
 	dbFileName := fmt.Sprintf("db_%d", *nodeID)
 
-	wallet, err := wallet.Import(keyfiles.KeyFiles{PrivateKeyFile: privateKey, PublicKeyFile: publicKey})
+	masterWallet, err := wallet.Import(keyfiles.KeyFiles{PrivateKeyFile: privateKey, PublicKeyFile: publicKey})
 	if err != nil {
 		log.Fatalf("Wallet could not be imported %s\n", err)
 	}
@@ -85,7 +85,7 @@ func main() {
 		log.Fatalf("Failed to initialize node %s", err)
 	}
 	blockchain.PrintBlockchain(getTip, getBlock)
-	nodes, err := operations.Register(conn, *wallet)(strconv.Itoa(*nodeID))
+	nodes, err := operations.Register(conn, *masterWallet)(strconv.Itoa(*nodeID))
 	if err != nil {
 		log.Fatalf("Failed to register %s\n", err)
 	}
@@ -100,9 +100,13 @@ func main() {
 					),
 				),
 			),
+		_websocket.TransactionReceivedMessage: handlers.SaveTransaction(
+			repository.SaveTransaction(db),
+			wallet.VerifySignature,
+		),
 	}
 	go _websocket.MaintainConnection(conn, router, hub, "0")
-	if err := connectToNodes(nodes, *wallet, router, hub); err != nil {
+	if err := connectToNodes(nodes, *masterWallet, router, hub); err != nil {
 		log.Fatalf("Failed to connect to nodes %s", err)
 	}
 	log.Printf("Nodes %#v\n", nodes)

@@ -116,7 +116,7 @@ func main() {
 	wg.Add(2)
 	hub := websocket.NewHub()
 	go runSocketServer(&wg, db, hub)
-	go runAPIServer(&wg, db, hub)
+	go runAPIServer(&wg, db, hub, *masterWallet)
 	wg.Wait()
 }
 
@@ -137,13 +137,22 @@ func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
 	http.ListenAndServe(":10000", mux)
 }
 
-func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
+func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub, w wallet.Wallet) {
 	getTip := repository.GetTip(db)
 	getBlock := repository.GetBlock(db)
 	findBlock := blockchain.FindBlock(getTip, getBlock)
 	httpRouter := mux.NewRouter()
 	httpRouter.
-		HandleFunc("/vote", api.NewHandleFunc(handlers.Vote(findBlock, repository.CastVote(db)))).Methods("POST")
+		HandleFunc("/vote",
+			api.NewHandleFunc(
+				handlers.Vote(
+					findBlock,
+					repository.CastVote(db),
+					hub.Broadcast,
+					wallet.WalletSigner(w),
+				),
+			),
+		).Methods("POST")
 	serverMux := http.NewServeMux()
 	serverMux.Handle("/", httpRouter)
 	http.ListenAndServe(":8000", serverMux)

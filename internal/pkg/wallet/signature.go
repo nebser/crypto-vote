@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -54,4 +55,30 @@ func Sign(data Signable, privateKey ecdsa.PrivateKey) ([]byte, error) {
 func hash(data []byte) []byte {
 	hashed := sha256.Sum256(data)
 	return hashed[:]
+}
+
+type SignerFn func(Signable) (signature, verifier string, err error)
+
+func WalletSigner(wallet Wallet) SignerFn {
+	return func(signable Signable) (string, string, error) {
+		signature, err := Sign(signable, wallet.PrivateKey)
+		if err != nil {
+			return "", "", errors.Wrapf(err, "Failed to create signature for %#v", signable)
+		}
+		return base64.StdEncoding.EncodeToString(signature), base64.StdEncoding.EncodeToString(wallet.PublicKey), nil
+	}
+}
+
+type VerifierFn func(data Signable, signature, publicKey string) (bool, error)
+
+func VerifySignature(data Signable, signature, publicKey string) (bool, error) {
+	rawSignature, err := base64.StdEncoding.DecodeString(signature)
+	if err != nil {
+		return false, errors.Wrapf(err, "Failed to decode signature %s", signature)
+	}
+	rawPublicKey, err := base64.StdEncoding.DecodeString(publicKey)
+	if err != nil {
+		return false, errors.Wrapf(err, "Failed to decode public key %s", publicKey)
+	}
+	return Verify(data, rawSignature, rawPublicKey), nil
 }

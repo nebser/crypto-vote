@@ -1,5 +1,7 @@
 package transaction
 
+import "errors"
+
 type UTXO struct {
 	TransactionID []byte
 	PublicKeyHash []byte
@@ -8,6 +10,8 @@ type UTXO struct {
 }
 
 type UTXOs []UTXO
+
+var ErrUTXONotFound = errors.New("UTXO not found")
 
 func (utxos UTXOs) Filter(criteria func(UTXO) bool) UTXOs {
 	result := UTXOs{}

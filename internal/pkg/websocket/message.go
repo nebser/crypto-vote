@@ -3,6 +3,9 @@ package websocket
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/nebser/crypto-vote/internal/pkg/wallet"
+	"github.com/pkg/errors"
 )
 
 type Message int
@@ -16,6 +19,7 @@ const (
 	ErrorMessage
 	ResponseMessage
 	TransactionReceivedMessage
+	NoActionMessage
 )
 
 func (m Message) String() string {
@@ -70,6 +74,39 @@ type Pong struct {
 	Sender    string      `json:"sender"`
 }
 
+type signablePong struct {
+	Body    interface{} `json:"body"`
+	Sender  string      `json:"sender"`
+	Message Message     `json:"message"`
+}
+
+func (p Pong) Signable() ([]byte, error) {
+	s := signablePong{
+		Body:    p.Body,
+		Message: p.Message,
+		Sender:  p.Sender,
+	}
+	return json.Marshal(s)
+}
+
+func (p Pong) Signed(signer wallet.SignerFn) (Pong, error) {
+	_, sender, err := signer(p)
+	if err != nil {
+		return p, errors.Wrapf(err, "Failed to sign pong %#v", p)
+	}
+	p.Sender = sender
+	signature, _, err := signer(p)
+	if err != nil {
+		return p, errors.Wrapf(err, "Failed to sign pong %#v", p)
+	}
+	return Pong{
+		Body:      p.Body,
+		Message:   p.Message,
+		Sender:    sender,
+		Signature: signature,
+	}, nil
+}
+
 func NewErrorPong(e Error) *Pong {
 	return &Pong{
 		Message: ErrorMessage,
@@ -82,4 +119,8 @@ func NewResponsePong(body interface{}) *Pong {
 		Message: ResponseMessage,
 		Body:    body,
 	}
+}
+
+func NewNoActionPong() *Pong {
+	return &Pong{Message: NoActionMessage}
 }
