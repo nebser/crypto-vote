@@ -20,6 +20,7 @@ const (
 	ResponseMessage
 	TransactionReceivedMessage
 	NoActionMessage
+	ForgeBlockMessage
 )
 
 func (m Message) String() string {
@@ -40,22 +41,28 @@ func (m Message) String() string {
 		return "response"
 	case TransactionReceivedMessage:
 		return "transaction-received"
+	case ForgeBlockMessage:
+		return "forge-block"
 	default:
 		return fmt.Sprintf("Unknown message %d", m)
 	}
 }
 
+type ForgeBlockBody struct {
+	Height int `json:"height"`
+}
+
 type Ping struct {
 	Message   Message         `json:"message"`
 	Body      json.RawMessage `json:"body"`
-	Signature string          `json:"signature"`
-	Sender    string          `json:"sender"`
+	Signature string          `json:"signature,omitempty"`
+	Sender    string          `json:"sender,omitempty"`
 }
 
 type signablePing struct {
 	Body    json.RawMessage `json:"body"`
-	Sender  string          `json:"sender"`
-	Message Message         `json:"message"`
+	Sender  string          `json:"sender,omitempty"`
+	Message Message         `json:"message,omitempty"`
 }
 
 func (p Ping) Signable() ([]byte, error) {
@@ -70,13 +77,13 @@ func (p Ping) Signable() ([]byte, error) {
 type Pong struct {
 	Message   Message     `json:"message"`
 	Body      interface{} `json:"body"`
-	Signature string      `json:"signature"`
-	Sender    string      `json:"sender"`
+	Signature string      `json:"signature,omitempty"`
+	Sender    string      `json:"sender,omitempty"`
 }
 
 type signablePong struct {
 	Body    interface{} `json:"body"`
-	Sender  string      `json:"sender"`
+	Sender  string      `json:"sender,omitempty"`
 	Message Message     `json:"message"`
 }
 

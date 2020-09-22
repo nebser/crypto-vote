@@ -1,7 +1,10 @@
 package alfa
 
 import (
+	"log"
+
 	"github.com/nebser/crypto-vote/internal/pkg/transaction"
+	"github.com/nebser/crypto-vote/internal/pkg/websocket"
 
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
@@ -38,4 +41,39 @@ func Initialize(masterWallet wallet.Wallet, clientWallets wallet.Wallets, initBl
 	}
 	return nil
 
+}
+
+type RunnerFn func() error
+
+func (r RunnerFn) Run() {
+	log.Println("STARTED CHOOSING BLOCK FORGER")
+	if err := r(); err != nil {
+		log.Printf("Failed to run forge finder. Error %s", err)
+	}
+	log.Println("FINISHED CHOOSING BLOCK FORGER")
+}
+
+func Runner(registeredNodes websocket.RegisteredNodesFn, unicastRandomly websocket.RandomUnicastFn, getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn, signer wallet.Signer) RunnerFn {
+	return func() error {
+		if len(registeredNodes()) < 2 {
+			return errors.Errorf("Not enough nodes registered to perform block forging. Number of blocks %d\n", len(registeredNodes()))
+		}
+		height, err := blockchain.GetHeight(getTip, getBlock)
+		if err != nil {
+			return errors.Errorf("Error occurred while trying to retrieve blockchain height %s", err)
+		}
+		pong, err := websocket.Pong{
+			Message: websocket.ForgeBlockMessage,
+			Body: websocket.ForgeBlockBody{
+				Height: height,
+			},
+		}.Signed(signer)
+		if err != nil {
+			return errors.Errorf("Failed to sign forge block message %s", err)
+		}
+		if err := unicastRandomly(pong); err != nil {
+			return errors.Errorf("Failed to send forge block message %s", err)
+		}
+		return nil
+	}
 }

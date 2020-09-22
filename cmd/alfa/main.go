@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nebser/crypto-vote/internal/pkg/api"
 
@@ -25,6 +26,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
+	"github.com/robfig/cron/v3"
 )
 
 const (
@@ -112,12 +114,28 @@ func main() {
 		}
 	}
 	blockchain.PrintBlockchain(repository.GetTip(db), repository.GetBlock(db))
+	hub := websocket.NewHub()
+	startForgerChooser(db, *masterWallet, hub)
 	wg := sync.WaitGroup{}
 	wg.Add(2)
-	hub := websocket.NewHub()
 	go runSocketServer(&wg, db, hub)
 	go runAPIServer(&wg, db, hub, *masterWallet)
 	wg.Wait()
+}
+
+func startForgerChooser(db *bolt.DB, masterWallet wallet.Wallet, hub websocket.Hub) {
+	c := cron.New()
+	c.Schedule(
+		cron.Every(2*time.Minute),
+		alfa.Runner(
+			hub.RegisteredNodes,
+			hub.RandomUnicast,
+			repository.GetTip(db),
+			repository.GetBlock(db),
+			wallet.NewSigner(masterWallet),
+		),
+	)
+	c.Start()
 }
 
 func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {

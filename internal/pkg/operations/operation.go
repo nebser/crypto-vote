@@ -9,13 +9,13 @@ import (
 type operation struct {
 	Message   websocket.Message `json:"message"`
 	Body      interface{}       `json:"body"`
-	Sender    string            `json:"sender"`
-	Signature string            `json:"signature"`
+	Sender    string            `json:"sender,omitempty"`
+	Signature string            `json:"signature,omitempty"`
 }
 
 type signable struct {
 	Body     interface{}       `json:"body"`
-	Sender   string            `json:"sender"`
+	Sender   string            `json:"sender,omitempty"`
 	Messsage websocket.Message `json:"message"`
 }
 
