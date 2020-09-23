@@ -3,12 +3,14 @@ package blockchain
 import (
 	"fmt"
 
+	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/pkg/errors"
 )
 
 const (
-	magicNumber = 0x100
-	version     = 0
+	magicNumber  = 0x100
+	version      = 0
+	MaxBlockSize = 256
 )
 
 type GetTipFn func() []byte
@@ -22,6 +24,8 @@ type AddBlocksFn func(Blocks) ([]byte, error)
 type GetBlockFn func(hash []byte) (*Block, error)
 
 type FindBlockFn func(criteria func(Block) bool) (Block, bool, error)
+
+type ForgeBlockFn func() (Block, error)
 
 func GetHeight(getTip GetTipFn, getBlock GetBlockFn) (int, error) {
 	result := 0
@@ -59,6 +63,23 @@ func PrintBlockchain(getTip GetTipFn, getBlock GetBlockFn) error {
 	}
 	fmt.Printf("Block height: %d\n", height)
 	return printOne(getTip(), getBlock)
+}
+
+func ForgeBlock(getTransactions transaction.GetTransactionsFn, getTip GetTipFn, addBlock AddBlockFn) ForgeBlockFn {
+	return func() (Block, error) {
+		transactions, err := getTransactions()
+		if err != nil {
+			return Block{}, errors.Wrapf(err, "Failed to get transactions, error %s", err)
+		}
+		block, err := NewBlock(getTip(), transactions)
+		if err != nil {
+			return Block{}, errors.Wrapf(err, "Failed to create block out of transactions %s", transactions)
+		}
+		if _, err := addBlock(*block); err != nil {
+			return Block{}, errors.Wrapf(err, "Failed to add block %s to blockchain", block)
+		}
+		return *block, nil
+	}
 }
 
 func printOne(hash []byte, getBlock GetBlockFn) error {

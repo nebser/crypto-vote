@@ -2,16 +2,7 @@ package websocket
 
 import (
 	"errors"
-	"fmt"
 )
-
-type Authorizer func(Ping) error
-
-type ErrUnauthorized string
-
-func (e ErrUnauthorized) Error() string {
-	return fmt.Sprintf("Node with address %s is unauthorized", string(e))
-}
 
 type Handler func(Ping, string) (*Pong, error)
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/pkg/errors"
 )
@@ -50,6 +51,10 @@ func (m Message) String() string {
 
 type ForgeBlockBody struct {
 	Height int `json:"height"`
+}
+
+type SaveTransactionBody struct {
+	Transaction transaction.Transaction `json:"transaction"`
 }
 
 type Ping struct {

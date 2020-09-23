@@ -126,7 +126,7 @@ func main() {
 func startForgerChooser(db *bolt.DB, masterWallet wallet.Wallet, hub websocket.Hub) {
 	c := cron.New()
 	c.Schedule(
-		cron.Every(2*time.Minute),
+		cron.Every(time.Minute),
 		alfa.Runner(
 			hub.RegisteredNodes,
 			hub.RandomUnicast,

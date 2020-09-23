@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/pkg/errors"
@@ -15,12 +16,15 @@ type CastVote func(from, to, signature, verifier []byte) (Transaction, error)
 
 type SaveTransaction func(Transaction) error
 
+type GetTransactionsFn func() (Transactions, error)
+
 type DeleteTransaction func(Transaction) error
 
 type Transaction struct {
-	ID      []byte  `json:"id"`
-	Inputs  Inputs  `json:"inputs"`
-	Outputs Outputs `json:"outputs"`
+	ID        []byte  `json:"id"`
+	Inputs    Inputs  `json:"inputs"`
+	Outputs   Outputs `json:"outputs"`
+	Timestamp int64   `json:"timestamp"`
 }
 
 var ErrInsufficientVotes = errors.New("Not enough votes available")
@@ -42,8 +46,9 @@ func (tx Transaction) String() string {
 }
 
 type hashable struct {
-	Inputs  Inputs  `json:"inputs"`
-	Outputs Outputs `json:"outputs"`
+	Inputs    Inputs  `json:"inputs"`
+	Outputs   Outputs `json:"outputs"`
+	Timestamp int64   `json:"timestamp"`
 }
 
 func newID(inputs Inputs, outputs Outputs) ([]byte, error) {
@@ -69,9 +74,10 @@ func NewTransaction(inputs Inputs, outputs Outputs) (*Transaction, error) {
 		return nil, errors.Wrap(err, "Failed to create id")
 	}
 	return &Transaction{
-		ID:      id,
-		Inputs:  inputs,
-		Outputs: outputs,
+		ID:        id,
+		Inputs:    inputs,
+		Outputs:   outputs,
+		Timestamp: time.Now().Unix(),
 	}, nil
 }
 

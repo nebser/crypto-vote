@@ -3,8 +3,10 @@ package repository
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log"
 
 	"github.com/boltdb/bolt"
+	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/pkg/errors"
 )
@@ -14,9 +16,10 @@ func transactionsBucket() []byte {
 }
 
 type tx struct {
-	ID      string              `json:"id"`
-	Inputs  []transactionInput  `json:"inputs"`
-	Outputs []transactionOutput `json:"outputs"`
+	ID        string              `json:"id"`
+	Inputs    []transactionInput  `json:"inputs"`
+	Outputs   []transactionOutput `json:"outputs"`
+	Timestamp int64               `json:"timestamp"`
 }
 
 func (t tx) toTransaction() transaction.Transaction {
@@ -30,9 +33,10 @@ func (t tx) toTransaction() transaction.Transaction {
 	}
 	id, _ := base64.StdEncoding.DecodeString(t.ID)
 	return transaction.Transaction{
-		ID:      id,
-		Inputs:  inputs,
-		Outputs: outputs,
+		ID:        id,
+		Inputs:    inputs,
+		Outputs:   outputs,
+		Timestamp: t.Timestamp,
 	}
 }
 
@@ -46,9 +50,10 @@ func newTX(transaction transaction.Transaction) tx {
 		outputs = append(outputs, newTransactionOutput(out))
 	}
 	return tx{
-		ID:      base64.StdEncoding.EncodeToString(transaction.ID),
-		Inputs:  inputs,
-		Outputs: outputs,
+		ID:        base64.StdEncoding.EncodeToString(transaction.ID),
+		Inputs:    inputs,
+		Outputs:   outputs,
+		Timestamp: transaction.Timestamp,
 	}
 }
 
@@ -141,14 +146,8 @@ func CastVote(db *bolt.DB) transaction.CastVote {
 			if err != nil {
 				return errors.Wrap(err, "Failed to create new transaction")
 			}
-			if err := deleteUTXO(tx, usedUTXO); err != nil {
-				return errors.Wrap(err, "Failed to overwrite transaction")
-			}
 			if err := saveTransaction(tx, *tr); err != nil {
 				return errors.Wrap(err, "Failed to save transaction")
-			}
-			if err := saveUTXOs(tx, tr.UTXOs()); err != nil {
-				return errors.Wrap(err, "Failed to save UTXOs")
 			}
 			result = *tr
 			return nil
@@ -173,6 +172,7 @@ func saveTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
 	if err := b.Put(transaction.ID, raw); err != nil {
 		return errors.Wrapf(err, "Failed to save transaction %s", transaction)
 	}
+	log.Println("ALL GOOD MOOD")
 	return nil
 }
 
@@ -180,27 +180,47 @@ func SaveTransaction(db *bolt.DB) transaction.SaveTransaction {
 	return func(tr transaction.Transaction) error {
 		return db.Update(func(tx *bolt.Tx) error {
 			sum := 0
+			log.Println("Received transaction %s", tr)
 			for _, in := range tr.Inputs {
 				utxo, err := getTransactionUTXO(tx, in.TransactionID, in.Vout)
 				switch {
 				case err != nil:
 					return errors.Wrapf(err, "Failed to get transaction utxo %x %d", in.TransactionID, in.Vout)
 				case utxo == nil:
+					log.Println("Transaction not found")
 					return transaction.ErrUTXONotFound
 				}
-				if err := deleteUTXO(tx, *utxo); err != nil {
-					return errors.Wrapf(err, "Failed to delete utxo %#v", *utxo)
-				}
 				if err := saveTransaction(tx, tr); err != nil {
-					return errors.Wrapf(err, "Failed to save transaction %s", tr)
+					return errors.Wrap(err, "Failed to save transaction")
 				}
 				sum += utxo.Value
 			}
 			if sum != tr.Outputs.Sum() {
 				return errors.Errorf("Sums of inputs (%d) and outputs (%d)", sum, tr.Outputs.Sum())
 			}
+			log.Println("ALL GOOD")
 			return nil
 		})
+	}
+}
+
+func GetTransactions(db *bolt.DB) transaction.GetTransactionsFn {
+	return func() (transaction.Transactions, error) {
+		var transactions transaction.Transactions
+		err := db.View(func(tx_ *bolt.Tx) error {
+			b := tx_.Bucket(transactionsBucket())
+			cursor := b.Cursor()
+			for key, value := cursor.First(); key != nil && len(transactions) < blockchain.MaxBlockSize; key, value = cursor.Next() {
+				var t tx
+				if err := json.Unmarshal(value, &t); err != nil {
+					return errors.Wrapf(err, "Failed to unmarshal transaction %s", value)
+				}
+				transactions = append(transactions, t.toTransaction())
+			}
+			return nil
+
+		})
+		return transactions, err
 	}
 }
 

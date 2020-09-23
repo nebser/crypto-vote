@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
@@ -45,6 +46,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Wallet could not be imported %s\n", err)
 	}
+	alfaPKey, err := wallet.LoadPublicKey("alfa/key_pub.pem")
+	if err != nil {
+		log.Fatalf("Failed to load public key %s", err)
+	}
+	encodedAlfaPkey := base64.StdEncoding.EncodeToString(alfaPKey)
 	if *newOption {
 		switch _, err := os.Stat(dbFileName); {
 		case err == nil:
@@ -104,6 +110,21 @@ func main() {
 			repository.SaveTransaction(db),
 			wallet.VerifySignature,
 		),
+		_websocket.ForgeBlockMessage: handlers.ForgeBlock(
+			repository.GetTip(db),
+			repository.GetBlock(db),
+			blockchain.ForgeBlock(
+				repository.GetTransactions(db),
+				repository.GetTip(db),
+				repository.AddBlock(db),
+			),
+		).
+			Authorized(
+				_websocket.PublicKeyAuthorizer(
+					encodedAlfaPkey,
+					wallet.VerifySignature,
+				),
+			),
 	}
 	go _websocket.MaintainConnection(conn, router, hub, "0")
 	if err := connectToNodes(nodes, *masterWallet, router, hub); err != nil {

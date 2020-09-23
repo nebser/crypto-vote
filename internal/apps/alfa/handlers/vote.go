@@ -84,7 +84,12 @@ func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote, broad
 			return api.Response{}, nil
 		}
 		log.Println("VOTED SUCCESSFULLY")
-		pong, err := websocket.Pong{Message: websocket.TransactionReceivedMessage, Body: tr}.Signed(signer)
+		pong, err := websocket.Pong{
+			Message: websocket.TransactionReceivedMessage,
+			Body: websocket.SaveTransactionBody{
+				Transaction: tr,
+			},
+		}.Signed(signer)
 		if err != nil {
 			return api.Response{}, errors.Wrap(err, "Failed to sign pong message")
 		}
