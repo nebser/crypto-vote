@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"log"
+	"sort"
 
 	"github.com/boltdb/bolt"
-	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/pkg/errors"
 )
@@ -176,29 +176,34 @@ func saveTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
 	return nil
 }
 
+func getInputSum(tx *bolt.Tx, tr transaction.Transaction) (int, error) {
+	sum := 0
+	for _, in := range tr.Inputs {
+		utxo, err := getTransactionUTXO(tx, in.TransactionID, in.Vout)
+		switch {
+		case err != nil:
+			return 0, errors.Wrapf(err, "Failed to get transaction utxo %x %d", in.TransactionID, in.Vout)
+		case utxo == nil:
+			return 0, transaction.ErrUTXONotFound
+		}
+		sum += utxo.Value
+	}
+	return sum, nil
+}
+
 func SaveTransaction(db *bolt.DB) transaction.SaveTransaction {
 	return func(tr transaction.Transaction) error {
 		return db.Update(func(tx *bolt.Tx) error {
-			sum := 0
-			log.Println("Received transaction %s", tr)
-			for _, in := range tr.Inputs {
-				utxo, err := getTransactionUTXO(tx, in.TransactionID, in.Vout)
-				switch {
-				case err != nil:
-					return errors.Wrapf(err, "Failed to get transaction utxo %x %d", in.TransactionID, in.Vout)
-				case utxo == nil:
-					log.Println("Transaction not found")
-					return transaction.ErrUTXONotFound
-				}
-				if err := saveTransaction(tx, tr); err != nil {
-					return errors.Wrap(err, "Failed to save transaction")
-				}
-				sum += utxo.Value
+			sum, err := getInputSum(tx, tr)
+			if err != nil {
+				return err
 			}
 			if sum != tr.Outputs.Sum() {
-				return errors.Errorf("Sums of inputs (%d) and outputs (%d)", sum, tr.Outputs.Sum())
+				return errors.Errorf("Sums of inputs (%d) and outputs (%d) are not the same", sum, tr.Outputs.Sum())
 			}
-			log.Println("ALL GOOD")
+			if err := saveTransaction(tx, tr); err != nil {
+				return errors.Wrap(err, "Failed to save transaction")
+			}
 			return nil
 		})
 	}
@@ -210,13 +215,14 @@ func GetTransactions(db *bolt.DB) transaction.GetTransactionsFn {
 		err := db.View(func(tx_ *bolt.Tx) error {
 			b := tx_.Bucket(transactionsBucket())
 			cursor := b.Cursor()
-			for key, value := cursor.First(); key != nil && len(transactions) < blockchain.MaxBlockSize; key, value = cursor.Next() {
+			for key, value := cursor.First(); key != nil; key, value = cursor.Next() {
 				var t tx
 				if err := json.Unmarshal(value, &t); err != nil {
 					return errors.Wrapf(err, "Failed to unmarshal transaction %s", value)
 				}
 				transactions = append(transactions, t.toTransaction())
 			}
+			sort.Sort(transactions)
 			return nil
 
 		})
@@ -231,6 +237,15 @@ func deleteTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
 	}
 	if err := b.Delete(transaction.ID); err != nil {
 		return errors.Wrapf(err, "Failed to delete transaction %s", transaction)
+	}
+	return nil
+}
+
+func deleteTransactions(tx *bolt.Tx, transactions transaction.Transactions) error {
+	for _, transaction := range transactions {
+		if err := deleteTransaction(tx, transaction); err != nil {
+			return errors.Wrap(err, "Failed to delete transactions")
+		}
 	}
 	return nil
 }

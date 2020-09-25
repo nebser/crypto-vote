@@ -238,3 +238,25 @@ func deleteUTXO(tx *bolt.Tx, utxo transaction.UTXO) error {
 	}
 	return nil
 }
+
+func deleteTransactionUTXOs(tx *bolt.Tx, transaction transaction.Transaction) error {
+	for _, input := range transaction.Inputs {
+		utxo, err := getTransactionUTXO(tx, input.TransactionID, input.Vout)
+		if err != nil {
+			return err
+		}
+		if err := deleteUTXO(tx, *utxo); err != nil {
+			return errors.Wrap(err, "Failed to delete utxo")
+		}
+	}
+	return nil
+}
+
+func deleteTransactionsUTXOs(tx *bolt.Tx, transactions transaction.Transactions) error {
+	for _, tr := range transactions {
+		if err := deleteTransactionUTXOs(tx, tr); err != nil {
+			return errors.Wrap(err, "Failed to delete utxo for transactions")
+		}
+	}
+	return nil
+}

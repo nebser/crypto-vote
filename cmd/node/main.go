@@ -113,11 +113,8 @@ func main() {
 		_websocket.ForgeBlockMessage: handlers.ForgeBlock(
 			repository.GetTip(db),
 			repository.GetBlock(db),
-			blockchain.ForgeBlock(
-				repository.GetTransactions(db),
-				repository.GetTip(db),
-				repository.AddBlock(db),
-			),
+			repository.ForgeBlock(db),
+			repository.GetTransactions(db),
 		).
 			Authorized(
 				_websocket.PublicKeyAuthorizer(

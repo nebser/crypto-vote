@@ -5,6 +5,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
+	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/pkg/errors"
 )
 
@@ -20,15 +21,19 @@ func GetTip(db *bolt.DB) blockchain.GetTipFn {
 	return func() []byte {
 		var tip []byte
 		db.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket(blocksBucket())
-			if b == nil {
-				return nil
-			}
-			tip = b.Get(tipKey())
+			tip = getTip(tx)
 			return nil
 		})
 		return tip
 	}
+}
+
+func getTip(tx *bolt.Tx) []byte {
+	b := tx.Bucket(blocksBucket())
+	if b == nil {
+		return nil
+	}
+	return b.Get(tipKey())
 }
 
 func InitBlockchain(db *bolt.DB) blockchain.InitBlockchainFn {
@@ -83,23 +88,31 @@ func AddBlock(db *bolt.DB) blockchain.AddBlockFn {
 	return func(block blockchain.Block) ([]byte, error) {
 		var tip []byte
 		err := db.Update(func(tx *bolt.Tx) error {
-			created, err := addBlock(tx, block)
+			created, err := addBlockWithUTXO(tx, block)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "Failed to add block %s", block)
 			}
 			tip = created
-			for _, transaction := range block.Body.Transactions {
-				if err := deleteTransaction(tx, transaction); err != nil {
-					return err
-				}
-				if err := saveUTXOs(tx, transaction.UTXOs()); err != nil {
-					return err
-				}
-			}
 			return nil
 		})
 		return tip, err
 	}
+}
+
+func addBlockWithUTXO(tx *bolt.Tx, block blockchain.Block) ([]byte, error) {
+	tip, err := addBlock(tx, block)
+	if err != nil {
+		return nil, err
+	}
+	for _, transaction := range block.Body.Transactions {
+		if err := deleteTransaction(tx, transaction); err != nil {
+			return nil, err
+		}
+		if err := saveUTXOs(tx, transaction.UTXOs()); err != nil {
+			return nil, err
+		}
+	}
+	return tip, nil
 }
 
 func GetBlock(db *bolt.DB) blockchain.GetBlockFn {
@@ -123,5 +136,50 @@ func GetBlock(db *bolt.DB) blockchain.GetBlockFn {
 			return nil
 		})
 		return result, err
+	}
+}
+
+func ForgeBlock(db *bolt.DB) blockchain.ForgeBlockFn {
+	return func(txs transaction.Transactions) (*blockchain.Block, error) {
+		var block *blockchain.Block
+		err := db.Update(func(tx *bolt.Tx) error {
+			var candidates transaction.Transactions
+			var invalidTransactions transaction.Transactions
+			for _, t := range txs {
+				sum, err := getInputSum(tx, t)
+				switch {
+				case errors.Is(err, transaction.ErrUTXONotFound):
+					invalidTransactions = append(invalidTransactions, t)
+				case err != nil:
+					return errors.Wrapf(err, "Failed to get sum of inputs for transaction %s", t)
+				case t.Outputs.Sum() != sum:
+					invalidTransactions = append(invalidTransactions, t)
+				default:
+					candidates = append(candidates, t)
+				}
+				if len(candidates) == blockchain.MaxBlockSize {
+					break
+				}
+			}
+			if err := deleteTransactionsUTXOs(tx, candidates); err != nil {
+				return errors.Wrapf(err, "Failed to delete candidate transactions from utxo set %s", candidates)
+			}
+			if err := deleteTransactions(tx, append(candidates, invalidTransactions...)); err != nil {
+				return errors.Wrap(err, "Failed to delete transactions")
+			}
+			if len(candidates) == 0 {
+				return nil
+			}
+			newBlock, err := blockchain.NewBlock(getTip(tx), candidates)
+			if err != nil {
+				return errors.Wrap(err, "Failed to set up new block")
+			}
+			if _, err := addBlockWithUTXO(tx, *newBlock); err != nil {
+				return errors.Wrap(err, "Failed to add block to database")
+			}
+			block = newBlock
+			return nil
+		})
+		return block, err
 	}
 }
