@@ -19,6 +19,8 @@ type GetTransactionsFn func() (Transactions, error)
 
 type DeleteTransaction func(Transaction) error
 
+const VoteValue = 10
+
 type Transaction struct {
 	ID        []byte  `json:"id"`
 	Inputs    Inputs  `json:"inputs"`
@@ -85,7 +87,7 @@ func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transa
 	signable := signable{
 		Recipient: recipientKeyHash,
 		Sender:    creator.PublicKeyHash(),
-		Value:     1,
+		Value:     VoteValue,
 	}
 	signature, err := wallet.Sign(signable, creator.PrivateKey)
 	if err != nil {
@@ -93,7 +95,7 @@ func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transa
 	}
 	outputs := Outputs{
 		{
-			Value:         1,
+			Value:         VoteValue,
 			PublicKeyHash: recipientKeyHash,
 		},
 	}

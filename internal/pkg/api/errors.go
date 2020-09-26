@@ -1,30 +1,26 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 )
 
 type Error struct {
-	Message string `json:"message"`
-	Type    string `json:"type"`
+	Error ErrorInformation `json:"error"`
 }
 
-func (e Error) MarshalJSON() ([]byte, error) {
-	data := struct {
-		Error Error `json:"error"`
-	}{
-		Error: e,
-	}
-	return json.Marshal(data)
+type ErrorInformation struct {
+	Message string `json:"message"`
+	Type    string `json:"type"`
 }
 
 func InternalServerErrorResponse() Response {
 	return Response{
 		Status: http.StatusInternalServerError,
 		Body: Error{
-			Message: "Unexpected error occurred",
-			Type:    "internal-server-error",
+			Error: ErrorInformation{
+				Message: "Unexpected error occurred",
+				Type:    "internal-server-error",
+			},
 		},
 	}
 }
@@ -33,8 +29,10 @@ func InvalidDataErrorResponse(message string) Response {
 	return Response{
 		Status: http.StatusBadRequest,
 		Body: Error{
-			Message: message,
-			Type:    "invalid-data-error",
+			Error: ErrorInformation{
+				Message: message,
+				Type:    "invalid-data-error",
+			},
 		},
 	}
 }
@@ -43,8 +41,10 @@ func UnauthorizedErrorResponse(message string) Response {
 	return Response{
 		Status: http.StatusUnauthorized,
 		Body: Error{
-			Message: message,
-			Type:    "unauthorized-error",
+			Error: ErrorInformation{
+				Message: message,
+				Type:    "unauthorized-error",
+			},
 		},
 	}
 }
@@ -53,8 +53,10 @@ func UserAlreadyVoted() Response {
 	return Response{
 		Status: http.StatusConflict,
 		Body: Error{
-			Message: "User already voted",
-			Type:    "user-already-voted",
+			Error: ErrorInformation{
+				Message: "User already voted",
+				Type:    "user-already-voted",
+			},
 		},
 	}
 }

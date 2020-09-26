@@ -29,7 +29,7 @@ func (b body) Signable() ([]byte, error) {
 	}{
 		Sender:    b.Sender,
 		Recipient: b.Recipient,
-		Value:     1,
+		Value:     10,
 	}
 	return json.Marshal(data)
 }

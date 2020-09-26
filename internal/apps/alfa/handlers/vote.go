@@ -30,7 +30,7 @@ func (v voteBody) Signable() ([]byte, error) {
 	}{
 		Sender:    v.Sender,
 		Recipient: v.Recipient,
-		Value:     1,
+		Value:     transaction.VoteValue,
 	}
 	return json.Marshal(data)
 }
