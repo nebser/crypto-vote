@@ -60,6 +60,7 @@ func hash(data []byte) []byte {
 type Signer interface {
 	Sign(Signable) (string, error)
 	Verifier() string
+	SignRaw(Signable) ([]byte, error)
 }
 
 type walletSigner struct {
@@ -72,6 +73,10 @@ func (w walletSigner) Sign(signable Signable) (string, error) {
 		return "", errors.Wrapf(err, "Failed to create signature for %#v", signable)
 	}
 	return base64.StdEncoding.EncodeToString(signature), nil
+}
+
+func (w walletSigner) SignRaw(signable Signable) ([]byte, error) {
+	return Sign(signable, w.wallet.PrivateKey)
 }
 
 func (w walletSigner) Verifier() string {

@@ -15,6 +15,8 @@ var ErrUTXONotFound = errors.New("UTXO not found")
 
 var ErrInvalidTxAmount = errors.New("Sums of inputs and outputs for this transaction don't add up")
 
+var ErrCantForge = errors.New("Node cannot forge new blocks because of an insufficient stake")
+
 func (utxos UTXOs) Filter(criteria func(UTXO) bool) UTXOs {
 	result := UTXOs{}
 	for _, utxo := range utxos {
@@ -34,4 +36,4 @@ func (utxos UTXOs) Sum() (sum int) {
 
 type SaveUTXO func(UTXO) error
 
-type GetUTXOS func(publicKeyHash []byte) ([]UTXO, error)
+type GetUTXOsByPublicKeyFn func(publicKeyHash []byte) (UTXOs, error)

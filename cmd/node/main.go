@@ -14,6 +14,7 @@ import (
 	"github.com/nebser/crypto-vote/internal/apps/node/handlers"
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/repository"
+	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 
 	"github.com/boltdb/bolt"
 	"github.com/gorilla/websocket"
@@ -61,6 +62,10 @@ func main() {
 			log.Fatalf("Failed to read stat for file %s", dbFileName)
 		}
 
+	}
+	hashedAlfaPKey, err := wallet.HashedPublicKey(alfaPKey)
+	if err != nil {
+		log.Fatalf("Failed to hash alfa public key %s", err)
 	}
 	db, err := bolt.Open(dbFileName, 0600, nil)
 	if err != nil {
@@ -115,6 +120,12 @@ func main() {
 			repository.GetBlock(db),
 			repository.ForgeBlock(db),
 			repository.GetTransactions(db),
+			transaction.NewStakeTransaction(
+				repository.GetUTXOsByPublicKey(db),
+				wallet.NewSigner(*masterWallet),
+				*masterWallet,
+				hashedAlfaPKey,
+			),
 		).
 			Authorized(
 				_websocket.PublicKeyAuthorizer(

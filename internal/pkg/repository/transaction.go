@@ -133,13 +133,13 @@ func CastVote(db *bolt.DB) transaction.CastVote {
 			outputs := transaction.Outputs{
 				transaction.Output{
 					PublicKeyHash: to,
-					Value:         1,
+					Value:         transaction.VoteValue,
 				},
 			}
-			if usedUTXO.Value > 1 {
+			if usedUTXO.Value > transaction.VoteValue {
 				outputs = append(outputs, transaction.Output{
 					PublicKeyHash: from,
-					Value:         usedUTXO.Value - 1,
+					Value:         usedUTXO.Value - transaction.VoteValue,
 				})
 			}
 			tr, err := transaction.NewTransaction(inputs, outputs)
@@ -214,6 +214,9 @@ func GetTransactions(db *bolt.DB) transaction.GetTransactionsFn {
 		var transactions transaction.Transactions
 		err := db.View(func(tx_ *bolt.Tx) error {
 			b := tx_.Bucket(transactionsBucket())
+			if b == nil {
+				return nil
+			}
 			cursor := b.Cursor()
 			for key, value := cursor.First(); key != nil; key, value = cursor.Next() {
 				var t tx

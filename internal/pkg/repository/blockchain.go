@@ -156,21 +156,22 @@ func ForgeBlock(db *bolt.DB) blockchain.ForgeBlockFn {
 					invalidTransactions = append(invalidTransactions, t)
 				default:
 					candidates = append(candidates, t)
+					if err := deleteTransactionUTXOs(tx, t); err != nil {
+						return errors.Wrapf(err, "Failed to delete candidate transaction from utxo set %s", t)
+					}
+					if len(candidates) == blockchain.MaxBlockSize {
+						break
+					}
 				}
-				if len(candidates) == blockchain.MaxBlockSize {
-					break
-				}
-			}
-			if err := deleteTransactionsUTXOs(tx, candidates); err != nil {
-				return errors.Wrapf(err, "Failed to delete candidate transactions from utxo set %s", candidates)
 			}
 			if err := deleteTransactions(tx, append(candidates, invalidTransactions...)); err != nil {
 				return errors.Wrap(err, "Failed to delete transactions")
 			}
-			if len(candidates) == 0 {
+			if len(candidates) == 1 {
 				return nil
 			}
-			newBlock, err := blockchain.NewBlock(getTip(tx), candidates)
+			tip := getTip(tx)
+			newBlock, err := blockchain.NewBlock(tip, candidates)
 			if err != nil {
 				return errors.Wrap(err, "Failed to set up new block")
 			}

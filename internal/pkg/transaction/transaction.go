@@ -19,6 +19,8 @@ type GetTransactionsFn func() (Transactions, error)
 
 type DeleteTransaction func(Transaction) error
 
+type NewStakeTransactionFn func() (*Transaction, error)
+
 const VoteValue = 10
 
 type Transaction struct {
@@ -80,6 +82,56 @@ func NewTransaction(inputs Inputs, outputs Outputs) (*Transaction, error) {
 		Outputs:   outputs,
 		Timestamp: time.Now().Unix(),
 	}, nil
+}
+
+func NewStakeTransaction(getUTXOs GetUTXOsByPublicKeyFn, signer wallet.Signer, stakeCreator wallet.Wallet, stakeholder []byte) NewStakeTransactionFn {
+	return func() (*Transaction, error) {
+		utxos, err := getUTXOs(stakeCreator.PublicKeyHash())
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to retrieve utxos for stake tx for %x", stakeCreator.PublicKeyHash())
+		}
+		target := utxos.Sum() / 2
+		if target < VoteValue/2 {
+			return nil, ErrCantForge
+		}
+		sum := 0
+		var inputs Inputs
+		for _, utxo := range utxos {
+			sum += utxo.Value
+			signable := signable{
+				Recipient: stakeholder,
+				Sender:    stakeCreator.PublicKeyHash(),
+				Value:     utxo.Value,
+			}
+			signature, err := signer.SignRaw(signable)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Failed to sign %#v", signable)
+			}
+			inputs = append(inputs, Input{
+				PublicKeyHash: stakeCreator.PublicKeyHash(),
+				Signature:     signature,
+				TransactionID: utxo.TransactionID,
+				Vout:          utxo.Vout,
+				Verifier:      stakeCreator.PublicKey,
+			})
+			if sum >= target {
+				break
+			}
+		}
+		outputs := Outputs{
+			{
+				Value:         target,
+				PublicKeyHash: stakeholder,
+			},
+		}
+		if sum > target {
+			outputs = append(outputs, Output{
+				Value:         sum - target,
+				PublicKeyHash: stakeCreator.PublicKeyHash(),
+			})
+		}
+		return NewTransaction(inputs, outputs)
+	}
 }
 
 func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transaction, error) {

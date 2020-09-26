@@ -260,3 +260,18 @@ func deleteTransactionsUTXOs(tx *bolt.Tx, transactions transaction.Transactions)
 	}
 	return nil
 }
+
+func GetUTXOsByPublicKey(db *bolt.DB) transaction.GetUTXOsByPublicKeyFn {
+	return func(pkeyHash []byte) (transaction.UTXOs, error) {
+		var result transaction.UTXOs
+		err := db.View(func(tx *bolt.Tx) error {
+			utxos, err := getUTXOsByPublicKey(tx, pkeyHash)
+			if err != nil {
+				return err
+			}
+			result = utxos
+			return nil
+		})
+		return result, err
+	}
+}
