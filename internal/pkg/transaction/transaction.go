@@ -1,7 +1,9 @@
 package transaction
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -20,6 +22,8 @@ type GetTransactionsFn func() (Transactions, error)
 type DeleteTransaction func(Transaction) error
 
 type NewStakeTransactionFn func() (*Transaction, error)
+
+type VerifyTransctionFn func(Transaction) bool
 
 const VoteValue = 10
 
@@ -184,4 +188,32 @@ func (t Transaction) UTXOs() (utxos []UTXO) {
 		})
 	}
 	return
+}
+
+func VerifyTransactions(getTransactionUTXO GetTransactionUTXO, verifier wallet.VerifierFn) VerifyTransctionFn {
+	return func(transaction Transaction) bool {
+		for _, input := range transaction.Inputs {
+			receiver, found := transaction.Outputs.Find(func(o Output) bool {
+				return bytes.Compare(o.PublicKeyHash, input.PublicKeyHash) != 0
+			})
+			if !found {
+				return false
+			}
+			utxo, err := getTransactionUTXO(input.TransactionID, input.Vout)
+			if err != nil || utxo == nil {
+				return false
+			}
+			signable := signable{
+				Recipient: receiver.PublicKeyHash,
+				Sender:    input.PublicKeyHash,
+				Value:     utxo.Value,
+			}
+			signature := base64.StdEncoding.EncodeToString(input.Signature)
+			pKey := base64.StdEncoding.EncodeToString(input.Verifier)
+			if ok, err := verifier(signable, signature, pKey); err != nil || !ok {
+				return false
+			}
+		}
+		return true
+	}
 }

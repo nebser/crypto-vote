@@ -38,6 +38,8 @@ type Block struct {
 
 type Blocks []Block
 
+type VerifyBlockFn func(Block) bool
+
 func (b Block) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("-----BEGIN BLOCK-----\n")
@@ -52,25 +54,18 @@ func (b Block) String() string {
 }
 
 func NewBlock(previousBlock []byte, transactions transaction.Transactions) (*Block, error) {
+	transactionsHash := transactions.Hash()
+	timestamp := time.Now().Unix()
+	blockHash, err := createHash(previousBlock, transactionsHash, timestamp)
+	if err != nil {
+		return nil, errors.New("Failed to create block hash")
+	}
 	header := Header{
 		Prev:            previousBlock,
-		TransactionHash: transactions.Hash(),
-		Timestamp:       time.Now().Unix(),
+		TransactionHash: transactionsHash,
+		Timestamp:       timestamp,
+		Hash:            blockHash,
 	}
-	timestampBytes, err := intToHex(header.Timestamp)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to convert timestamp %d to byte array", header.Timestamp)
-	}
-	hashable := bytes.Join(
-		[][]byte{
-			header.Prev,
-			header.TransactionHash,
-			timestampBytes,
-		},
-		[]byte{},
-	)
-	hash := sha256.Sum256(hashable)
-	header.Hash = hash[:]
 	return &Block{
 		Header: header,
 		Metadata: Metadata{
@@ -83,10 +78,43 @@ func NewBlock(previousBlock []byte, transactions transaction.Transactions) (*Blo
 	}, nil
 }
 
+func createHash(previousBlock, transactionsHash []byte, timestamp int64) ([]byte, error) {
+	timestampBytes, err := intToHex(timestamp)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to convert timestamp %d to byte array", timestamp)
+	}
+	hashable := bytes.Join(
+		[][]byte{
+			previousBlock,
+			transactionsHash,
+			timestampBytes,
+		},
+		[]byte{},
+	)
+	hash := sha256.Sum256(hashable)
+	return hash[:], nil
+}
+
 func intToHex(num int64) ([]byte, error) {
 	buff := new(bytes.Buffer)
 	if err := binary.Write(buff, binary.BigEndian, num); err != nil {
 		return nil, errors.Wrapf(err, "Failed to convert int to byte array %d", num)
 	}
 	return buff.Bytes(), nil
+}
+
+func VerfiyBlock(verifyTransaction transaction.VerifyTransctionFn) VerifyBlockFn {
+	return func(block Block) bool {
+		for _, transaction := range block.Body.Transactions {
+			if !verifyTransaction(transaction) {
+				return false
+			}
+		}
+		transactionHash := block.Body.Transactions.Hash()
+		blockHash, err := createHash(block.Header.Prev, transactionHash, block.Header.Timestamp)
+		if err != nil {
+			return false
+		}
+		return bytes.Compare(block.Header.Hash, blockHash) == 0
+	}
 }

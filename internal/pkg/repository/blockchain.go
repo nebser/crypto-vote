@@ -139,39 +139,47 @@ func GetBlock(db *bolt.DB) blockchain.GetBlockFn {
 	}
 }
 
+func verifyTransactions(tx *bolt.Tx, transactions transaction.Transactions) (transaction.Transactions, transaction.Transactions, error) {
+	var valids transaction.Transactions
+	var invalids transaction.Transactions
+	for _, t := range transactions {
+		sum, err := getInputSum(tx, t)
+		switch {
+		case errors.Is(err, transaction.ErrUTXONotFound):
+			invalids = append(invalids, t)
+		case err != nil:
+			return nil, nil, errors.Wrapf(err, "Failed to get sum of inputs for transaction %s", t)
+		case t.Outputs.Sum() != sum:
+			invalids = append(invalids, t)
+		default:
+			valids = append(valids, t)
+			if err := deleteTransactionUTXOs(tx, t); err != nil {
+				return nil, nil, errors.Wrapf(err, "Failed to delete candidate transaction from utxo set %s", t)
+			}
+			if len(valids) == blockchain.MaxBlockSize {
+				break
+			}
+		}
+	}
+	return valids, invalids, nil
+}
+
 func ForgeBlock(db *bolt.DB) blockchain.ForgeBlockFn {
 	return func(txs transaction.Transactions) (*blockchain.Block, error) {
 		var block *blockchain.Block
 		err := db.Update(func(tx *bolt.Tx) error {
-			var candidates transaction.Transactions
-			var invalidTransactions transaction.Transactions
-			for _, t := range txs {
-				sum, err := getInputSum(tx, t)
-				switch {
-				case errors.Is(err, transaction.ErrUTXONotFound):
-					invalidTransactions = append(invalidTransactions, t)
-				case err != nil:
-					return errors.Wrapf(err, "Failed to get sum of inputs for transaction %s", t)
-				case t.Outputs.Sum() != sum:
-					invalidTransactions = append(invalidTransactions, t)
-				default:
-					candidates = append(candidates, t)
-					if err := deleteTransactionUTXOs(tx, t); err != nil {
-						return errors.Wrapf(err, "Failed to delete candidate transaction from utxo set %s", t)
-					}
-					if len(candidates) == blockchain.MaxBlockSize {
-						break
-					}
-				}
+			valids, invalids, err := verifyTransactions(tx, txs)
+			if err != nil {
+				return err
 			}
-			if err := deleteTransactions(tx, append(candidates, invalidTransactions...)); err != nil {
+			if err := deleteTransactions(tx, append(valids, invalids...)); err != nil {
 				return errors.Wrap(err, "Failed to delete transactions")
 			}
-			if len(candidates) == 1 {
+			if len(valids) == 1 {
 				return nil
 			}
 			tip := getTip(tx)
-			newBlock, err := blockchain.NewBlock(tip, candidates)
+			newBlock, err := blockchain.NewBlock(tip, valids)
 			if err != nil {
 				return errors.Wrap(err, "Failed to set up new block")
 			}
@@ -182,5 +190,23 @@ func ForgeBlock(db *bolt.DB) blockchain.ForgeBlockFn {
 			return nil
 		})
 		return block, err
+	}
+}
+
+func AddNewBlock(db *bolt.DB) blockchain.AddNewBlockFn {
+	return func(block blockchain.Block) error {
+		return db.Update(func(tx *bolt.Tx) error {
+			_, invalids, err := verifyTransactions(tx, block.Body.Transactions)
+			if err != nil {
+				return err
+			}
+			if len(invalids) > 0 {
+				return blockchain.ErrInvalidBlock
+			}
+			if _, err := addBlockWithUTXO(tx, block); err != nil {
+				return errors.Wrapf(err, "Failed to add block to database")
+			}
+			return nil
+		})
 	}
 }

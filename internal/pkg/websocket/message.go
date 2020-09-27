@@ -22,6 +22,8 @@ const (
 	TransactionReceivedMessage
 	NoActionMessage
 	ForgeBlockMessage
+	BlockForgedMessage
+	DisconnectMessage
 )
 
 func (m Message) String() string {
@@ -42,8 +44,14 @@ func (m Message) String() string {
 		return "response"
 	case TransactionReceivedMessage:
 		return "transaction-received"
+	case NoActionMessage:
+		return "no-action"
 	case ForgeBlockMessage:
 		return "forge-block"
+	case BlockForgedMessage:
+		return "block-forged"
+	case DisconnectMessage:
+		return "disconnect"
 	default:
 		return fmt.Sprintf("Unknown message %d", m)
 	}
@@ -51,6 +59,11 @@ func (m Message) String() string {
 
 type ForgeBlockBody struct {
 	Height int `json:"height"`
+}
+
+type BlockForgedBody struct {
+	Height int         `json:"height"`
+	Block  interface{} `json:"block"`
 }
 
 type SaveTransactionBody struct {
@@ -131,4 +144,8 @@ func NewResponsePong(body interface{}) *Pong {
 
 func NewNoActionPong() *Pong {
 	return &Pong{Message: NoActionMessage}
+}
+
+func NewDisconnectPong() *Pong {
+	return &Pong{Message: DisconnectMessage}
 }

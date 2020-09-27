@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"errors"
+	"log"
 )
 
 type Handler func(Ping, string) (*Pong, error)
@@ -35,6 +36,7 @@ func (r Router) Route(p Ping, id string) *Pong {
 	}
 	result, err := handler(p, id)
 	if err != nil {
+		log.Printf("Error occurred while forwarding message %s. Error: %s", p.Message, err)
 		return &Pong{
 			Message: ErrorMessage,
 			Body:    NewUnknownError(),

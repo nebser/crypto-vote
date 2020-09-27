@@ -27,6 +27,10 @@ type FindBlockFn func(criteria func(Block) bool) (Block, bool, error)
 
 type ForgeBlockFn func(transaction.Transactions) (*Block, error)
 
+type AddNewBlockFn func(Block) error
+
+var ErrInvalidBlock = errors.New("Block is not valid")
+
 func GetHeight(getTip GetTipFn, getBlock GetBlockFn) (int, error) {
 	result := 0
 	for current := getTip(); current != nil; {

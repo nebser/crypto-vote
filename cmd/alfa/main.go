@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nebser/crypto-vote/internal/pkg/api"
+	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 
 	"github.com/gorilla/mux"
 
@@ -126,7 +127,7 @@ func main() {
 func startForgerChooser(db *bolt.DB, masterWallet wallet.Wallet, hub websocket.Hub) {
 	c := cron.New()
 	c.Schedule(
-		cron.Every(time.Minute),
+		cron.Every(30*time.Second),
 		alfa.Runner(
 			hub.RegisteredNodes,
 			hub.RandomUnicast,
@@ -149,6 +150,17 @@ func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
 		websocket.GetMissingBlocksMessage:    handlers.GetMissingBlocks(getTip, getBlock),
 		websocket.GetBlockMessage:            handlers.GetBlock(getBlock),
 		websocket.RegisterMessage:            handlers.Register(hub).Authorized(authorizer),
+		websocket.BlockForgedMessage: handlers.BlockForged(
+			getTip,
+			getBlock,
+			blockchain.VerfiyBlock(
+				transaction.VerifyTransactions(
+					repository.GetTransactionUTXO(db),
+					wallet.VerifySignature,
+				),
+			),
+			repository.AddNewBlock(db),
+		),
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/", websocket.PingPongConnection(router, hub))

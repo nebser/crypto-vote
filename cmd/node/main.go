@@ -126,6 +126,7 @@ func main() {
 				*masterWallet,
 				hashedAlfaPKey,
 			),
+			hub.Broadcast,
 		).
 			Authorized(
 				_websocket.PublicKeyAuthorizer(
@@ -133,6 +134,17 @@ func main() {
 					wallet.VerifySignature,
 				),
 			),
+		_websocket.BlockForgedMessage: handlers.BlockForged(
+			repository.GetTip(db),
+			repository.GetBlock(db),
+			blockchain.VerfiyBlock(
+				transaction.VerifyTransactions(
+					repository.GetTransactionUTXO(db),
+					wallet.VerifySignature,
+				),
+			),
+			repository.AddNewBlock(db),
+		),
 	}
 	go _websocket.MaintainConnection(conn, router, hub, "0")
 	if err := connectToNodes(nodes, *masterWallet, router, hub); err != nil {

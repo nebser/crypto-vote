@@ -1,6 +1,8 @@
 package transaction
 
-import "errors"
+import (
+	"errors"
+)
 
 type UTXO struct {
 	TransactionID []byte
@@ -37,3 +39,5 @@ func (utxos UTXOs) Sum() (sum int) {
 type SaveUTXO func(UTXO) error
 
 type GetUTXOsByPublicKeyFn func(publicKeyHash []byte) (UTXOs, error)
+
+type GetTransactionUTXO func(id []byte, vout int) (*UTXO, error)

@@ -16,6 +16,7 @@ func ForgeBlock(
 	forgeBlock blockchain.ForgeBlockFn,
 	getTransactions transaction.GetTransactionsFn,
 	newStakeTransaction transaction.NewStakeTransactionFn,
+	broadcast websocket.BroadcastFn,
 ) websocket.Handler {
 	return func(ping websocket.Ping, _ string) (*websocket.Pong, error) {
 		var body websocket.ForgeBlockBody
@@ -48,9 +49,21 @@ func ForgeBlock(
 			return nil, errors.Wrap(err, "Failed to forge block")
 		case block == nil:
 			log.Printf("Block is not forged because there are no transactions")
-		default:
-			log.Println("Forged block")
+			return websocket.NewNoActionPong(), nil
 		}
+		log.Println("Forged block")
+		newBlock, err := getBlock(getTip())
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to return block")
+		}
+		broadcast(websocket.Pong{
+			Message: websocket.BlockForgedMessage,
+			Body: websocket.BlockForgedBody{
+				Height: height + 1,
+				Block:  *newBlock,
+			},
+		})
+		log.Println("Sent forged block")
 		return websocket.NewNoActionPong(), nil
 	}
 }

@@ -275,3 +275,18 @@ func GetUTXOsByPublicKey(db *bolt.DB) transaction.GetUTXOsByPublicKeyFn {
 		return result, err
 	}
 }
+
+func GetTransactionUTXO(db *bolt.DB) transaction.GetTransactionUTXO {
+	return func(id []byte, vout int) (*transaction.UTXO, error) {
+		var tr *transaction.UTXO
+		err := db.View(func(tx *bolt.Tx) error {
+			result, err := getTransactionUTXO(tx, id, vout)
+			if err != nil {
+				return err
+			}
+			tr = result
+			return nil
+		})
+		return tr, err
+	}
+}

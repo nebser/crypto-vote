@@ -43,7 +43,12 @@ func reader(conn *websocket.Conn, id string, hub Hub, router Router, responseCha
 			continue
 		}
 		pong := router.Route(ping, id)
-		if pong != nil && pong.Message != NoActionMessage {
+		switch {
+		case pong == nil || pong.Message == NoActionMessage:
+			continue
+		case pong.Message == DisconnectMessage:
+			return
+		default:
 			responseChan <- *pong
 		}
 	}
