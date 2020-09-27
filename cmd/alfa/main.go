@@ -119,7 +119,7 @@ func main() {
 	startForgerChooser(db, *masterWallet, hub)
 	wg := sync.WaitGroup{}
 	wg.Add(2)
-	go runSocketServer(&wg, db, hub)
+	go runSocketServer(&wg, db, hub, *masterWallet)
 	go runAPIServer(&wg, db, hub, *masterWallet)
 	wg.Wait()
 }
@@ -139,7 +139,7 @@ func startForgerChooser(db *bolt.DB, masterWallet wallet.Wallet, hub websocket.H
 	c.Start()
 }
 
-func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
+func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub, w wallet.Wallet) {
 	defer wg.Done()
 	getTip := repository.GetTip(db)
 	getBlock := repository.GetBlock(db)
@@ -158,6 +158,7 @@ func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
 					repository.GetTransactionUTXO(db),
 					wallet.VerifySignature,
 				),
+				transaction.IsStakeTransaction(w.PublicKeyHash()),
 			),
 			repository.AddNewBlock(db),
 		),

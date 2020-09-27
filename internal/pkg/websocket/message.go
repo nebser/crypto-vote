@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -90,6 +91,18 @@ func (p Ping) Signable() ([]byte, error) {
 		Sender:  p.Sender,
 	}
 	return json.Marshal(s)
+}
+
+func (p Ping) Verified() bool {
+	senderPKey, err := base64.StdEncoding.DecodeString(p.Sender)
+	if err != nil {
+		return false
+	}
+	signature, err := base64.RawStdEncoding.DecodeString(p.Signature)
+	if err != nil {
+		return false
+	}
+	return wallet.Verify(p, signature, senderPKey)
 }
 
 type Pong struct {

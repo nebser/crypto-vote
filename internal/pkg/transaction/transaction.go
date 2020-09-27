@@ -25,6 +25,8 @@ type NewStakeTransactionFn func() (*Transaction, error)
 
 type VerifyTransctionFn func(Transaction) bool
 
+type IsStakeTransactionFn func(Transaction) bool
+
 const VoteValue = 10
 
 type Transaction struct {
@@ -190,6 +192,13 @@ func (t Transaction) UTXOs() (utxos []UTXO) {
 	return
 }
 
+func (t Transaction) AreInputsFrom(pkeyHash []byte) bool {
+	_, found := t.Inputs.Find(func(input Input) bool {
+		return bytes.Compare(input.PublicKeyHash, pkeyHash) != 0
+	})
+	return !found
+}
+
 func VerifyTransactions(getTransactionUTXO GetTransactionUTXO, verifier wallet.VerifierFn) VerifyTransctionFn {
 	return func(transaction Transaction) bool {
 		for _, input := range transaction.Inputs {
@@ -213,6 +222,24 @@ func VerifyTransactions(getTransactionUTXO GetTransactionUTXO, verifier wallet.V
 			if ok, err := verifier(signable, signature, pKey); err != nil || !ok {
 				return false
 			}
+		}
+		return true
+	}
+}
+
+func IsStakeTransaction(alfaKeyHash []byte) IsStakeTransactionFn {
+	return func(transaction Transaction) bool {
+		if len(transaction.Outputs) > 2 {
+			return false
+		}
+		alfaOutput, found := transaction.Outputs.Find(func(o Output) bool {
+			return bytes.Compare(o.PublicKeyHash, alfaKeyHash) == 0
+		})
+		if !found {
+			return false
+		}
+		if transaction.Outputs.Sum()/2 != alfaOutput.Value {
+			return false
 		}
 		return true
 	}

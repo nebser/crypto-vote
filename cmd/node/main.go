@@ -127,6 +127,7 @@ func main() {
 				hashedAlfaPKey,
 			),
 			hub.Broadcast,
+			wallet.NewSigner(*masterWallet),
 		).
 			Authorized(
 				_websocket.PublicKeyAuthorizer(
@@ -142,6 +143,7 @@ func main() {
 					repository.GetTransactionUTXO(db),
 					wallet.VerifySignature,
 				),
+				transaction.IsStakeTransaction(hashedAlfaPKey),
 			),
 			repository.AddNewBlock(db),
 		),

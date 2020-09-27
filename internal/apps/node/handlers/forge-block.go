@@ -6,6 +6,7 @@ import (
 
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
 	"github.com/nebser/crypto-vote/internal/pkg/transaction"
+	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/nebser/crypto-vote/internal/pkg/websocket"
 	"github.com/pkg/errors"
 )
@@ -17,6 +18,7 @@ func ForgeBlock(
 	getTransactions transaction.GetTransactionsFn,
 	newStakeTransaction transaction.NewStakeTransactionFn,
 	broadcast websocket.BroadcastFn,
+	signer wallet.Signer,
 ) websocket.Handler {
 	return func(ping websocket.Ping, _ string) (*websocket.Pong, error) {
 		var body websocket.ForgeBlockBody
@@ -56,13 +58,17 @@ func ForgeBlock(
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to return block")
 		}
-		broadcast(websocket.Pong{
+		pong, err := websocket.Pong{
 			Message: websocket.BlockForgedMessage,
 			Body: websocket.BlockForgedBody{
 				Height: height + 1,
 				Block:  *newBlock,
 			},
-		})
+		}.Signed(signer)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to sign pong message")
+		}
+		broadcast(pong)
 		log.Println("Sent forged block")
 		return websocket.NewNoActionPong(), nil
 	}

@@ -103,12 +103,15 @@ func intToHex(num int64) ([]byte, error) {
 	return buff.Bytes(), nil
 }
 
-func VerfiyBlock(verifyTransaction transaction.VerifyTransctionFn) VerifyBlockFn {
+func VerfiyBlock(verifyTransaction transaction.VerifyTransctionFn, isStakeTransaction transaction.IsStakeTransactionFn) VerifyBlockFn {
 	return func(block Block) bool {
 		for _, transaction := range block.Body.Transactions {
 			if !verifyTransaction(transaction) {
 				return false
 			}
+		}
+		if len(block.Body.Transactions) == 0 || !isStakeTransaction(block.Body.Transactions[0]) {
+			return false
 		}
 		transactionHash := block.Body.Transactions.Hash()
 		blockHash, err := createHash(block.Header.Prev, transactionHash, block.Header.Timestamp)

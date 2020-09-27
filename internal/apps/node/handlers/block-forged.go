@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"log"
 
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
+	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/nebser/crypto-vote/internal/pkg/websocket"
 	"github.com/pkg/errors"
 )
@@ -27,7 +29,15 @@ func BlockForged(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn, ver
 		if height+1 < body.Height {
 			return nil, errors.Errorf("Blockchain height is too low %d", height)
 		}
-		if !verifyBlock(body.Block) {
+		sender, err := base64.StdEncoding.DecodeString(ping.Sender)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to decode sender %s", ping.Sender)
+		}
+		hashedSender, err := wallet.HashedPublicKey(sender)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to extract hashed public key")
+		}
+		if !verifyBlock(body.Block) || !body.Block.Body.Transactions[0].AreInputsFrom(hashedSender) {
 			return websocket.NewDisconnectPong(), nil
 		}
 		switch err := addNewBlock(body.Block); {
