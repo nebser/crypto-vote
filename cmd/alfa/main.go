@@ -120,7 +120,7 @@ func main() {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go runSocketServer(&wg, db, hub, *masterWallet)
-	go runAPIServer(&wg, db, hub, *masterWallet)
+	go runAPIServer(&wg, db, hub)
 	wg.Wait()
 }
 
@@ -164,11 +164,11 @@ func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub, w walle
 		),
 	}
 	mux := http.NewServeMux()
-	mux.Handle("/", websocket.PingPongConnection(router, hub))
+	mux.Handle("/", websocket.PingPongConnection(router, hub, wallet.NewSigner(w)))
 	http.ListenAndServe(":10000", mux)
 }
 
-func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub, w wallet.Wallet) {
+func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
 	getTip := repository.GetTip(db)
 	getBlock := repository.GetBlock(db)
 	findBlock := blockchain.FindBlock(getTip, getBlock)
@@ -180,7 +180,6 @@ func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub, w wallet.W
 					findBlock,
 					repository.CastVote(db),
 					hub.Broadcast,
-					wallet.NewSigner(w),
 				),
 			),
 		).Methods("POST")

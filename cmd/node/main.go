@@ -101,6 +101,7 @@ func main() {
 		log.Fatalf("Failed to register %s\n", err)
 	}
 	hub := _websocket.NewHub()
+	signer := wallet.NewSigner(*masterWallet)
 	router := _websocket.Router{
 		_websocket.RegisterMessage: handlers.Register(hub).
 			Authorized(
@@ -122,12 +123,11 @@ func main() {
 			repository.GetTransactions(db),
 			transaction.NewStakeTransaction(
 				repository.GetUTXOsByPublicKey(db),
-				wallet.NewSigner(*masterWallet),
+				signer,
 				*masterWallet,
 				hashedAlfaPKey,
 			),
 			hub.Broadcast,
-			wallet.NewSigner(*masterWallet),
 		).
 			Authorized(
 				_websocket.PublicKeyAuthorizer(
@@ -148,16 +148,16 @@ func main() {
 			repository.AddNewBlock(db),
 		),
 	}
-	go _websocket.MaintainConnection(conn, router, hub, "0")
-	if err := connectToNodes(nodes, *masterWallet, router, hub); err != nil {
+	go _websocket.MaintainConnection(conn, router, hub, "0", signer)
+	if err := connectToNodes(nodes, *masterWallet, router, hub, signer); err != nil {
 		log.Fatalf("Failed to connect to nodes %s", err)
 	}
 	log.Printf("Nodes %#v\n", nodes)
-	http.Handle("/", _websocket.PingPongConnection(router, hub))
+	http.Handle("/", _websocket.PingPongConnection(router, hub, signer))
 	http.ListenAndServe(fmt.Sprintf("localhost:%d", 10000+*nodeID), nil)
 }
 
-func connectToNodes(nodes []string, wallet wallet.Wallet, router _websocket.Router, hub _websocket.Hub) error {
+func connectToNodes(nodes []string, wallet wallet.Wallet, router _websocket.Router, hub _websocket.Hub, signer wallet.Signer) error {
 	for _, node := range nodes {
 		i, err := strconv.Atoi(node)
 		if err != nil {
@@ -176,7 +176,7 @@ func connectToNodes(nodes []string, wallet wallet.Wallet, router _websocket.Rout
 		if err != nil {
 			return err
 		}
-		go _websocket.MaintainConnection(conn, router, hub, node)
+		go _websocket.MaintainConnection(conn, router, hub, node, signer)
 	}
 	return nil
 }

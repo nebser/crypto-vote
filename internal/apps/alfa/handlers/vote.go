@@ -35,7 +35,7 @@ func (v voteBody) Signable() ([]byte, error) {
 	return json.Marshal(data)
 }
 
-func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote, broadcast websocket.BroadcastFn, signer wallet.Signer) api.Handler {
+func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote, broadcast websocket.BroadcastFn) api.Handler {
 	return func(request api.Request) (api.Response, error) {
 		var body voteBody
 		if err := json.Unmarshal(request.Body, &body); err != nil {
@@ -84,16 +84,12 @@ func Vote(findBlock blockchain.FindBlockFn, castVote transaction.CastVote, broad
 			return api.Response{}, nil
 		}
 		log.Println("VOTED SUCCESSFULLY")
-		pong, err := websocket.Pong{
+		broadcast(websocket.Pong{
 			Message: websocket.TransactionReceivedMessage,
 			Body: websocket.SaveTransactionBody{
 				Transaction: tr,
 			},
-		}.Signed(signer)
-		if err != nil {
-			return api.Response{}, errors.Wrap(err, "Failed to sign pong message")
-		}
-		broadcast(pong)
+		})
 		log.Println("BROADCASTED SUCCESSFULLY")
 		return api.Response{
 			Status: http.StatusOK,

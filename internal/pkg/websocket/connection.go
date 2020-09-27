@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/pkg/errors"
 )
 
@@ -54,14 +55,19 @@ func reader(conn *websocket.Conn, id string, hub Hub, router Router, responseCha
 	}
 }
 
-func writer(conn *websocket.Conn, responseChan chan Pong, wg *sync.WaitGroup) {
+func writer(conn *websocket.Conn, responseChan chan Pong, signer wallet.Signer, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for pong := range responseChan {
-		conn.WriteJSON(pong)
+		signed, err := pong.Signed(signer)
+		if err != nil {
+			log.Printf("Failed to sign message %#v", pong)
+			continue
+		}
+		conn.WriteJSON(signed)
 	}
 }
 
-func PingPongConnection(router Router, hub Hub) Connection {
+func PingPongConnection(router Router, hub Hub, signer wallet.Signer) Connection {
 	return func(resp http.ResponseWriter, request *http.Request) error {
 		upgrader := websocket.Upgrader{}
 		conn, err := upgrader.Upgrade(resp, request, nil)
@@ -75,7 +81,7 @@ func PingPongConnection(router Router, hub Hub) Connection {
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 		go reader(conn, id, hub, router, responseChan, &wg)
-		go writer(conn, responseChan, &wg)
+		go writer(conn, responseChan, signer, &wg)
 
 		wg.Wait()
 
@@ -83,7 +89,7 @@ func PingPongConnection(router Router, hub Hub) Connection {
 	}
 }
 
-func MaintainConnection(conn *websocket.Conn, router Router, hub Hub, nodeID string) {
+func MaintainConnection(conn *websocket.Conn, router Router, hub Hub, nodeID string, signer wallet.Signer) {
 	defer conn.Close()
 
 	responseChan := make(chan Pong, 5)
@@ -92,7 +98,7 @@ func MaintainConnection(conn *websocket.Conn, router Router, hub Hub, nodeID str
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go reader(conn, id, hub, router, responseChan, &wg)
-	go writer(conn, responseChan, &wg)
+	go writer(conn, responseChan, signer, &wg)
 
 	wg.Wait()
 }
