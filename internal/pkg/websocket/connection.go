@@ -19,7 +19,7 @@ func (c Connection) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func reader(conn *websocket.Conn, id string, hub Hub, router Router, responseChan chan Pong, wg *sync.WaitGroup) {
+func reader(conn *websocket.Conn, id string, hub *Hub, router Router, responseChan chan Pong, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer close(responseChan)
 	defer hub.Unregister(id)
@@ -67,7 +67,7 @@ func writer(conn *websocket.Conn, responseChan chan Pong, signer wallet.Signer, 
 	}
 }
 
-func PingPongConnection(router Router, hub Hub, signer wallet.Signer) Connection {
+func PingPongConnection(router Router, hub *Hub, signer wallet.Signer) Connection {
 	return func(resp http.ResponseWriter, request *http.Request) error {
 		upgrader := websocket.Upgrader{}
 		conn, err := upgrader.Upgrade(resp, request, nil)
@@ -89,7 +89,7 @@ func PingPongConnection(router Router, hub Hub, signer wallet.Signer) Connection
 	}
 }
 
-func MaintainConnection(conn *websocket.Conn, router Router, hub Hub, nodeID string, signer wallet.Signer) {
+func MaintainConnection(conn *websocket.Conn, router Router, hub *Hub, nodeID string, signer wallet.Signer) {
 	defer conn.Close()
 
 	responseChan := make(chan Pong, 5)

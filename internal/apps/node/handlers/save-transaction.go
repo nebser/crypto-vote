@@ -23,6 +23,7 @@ func SaveTransaction(save transaction.SaveTransaction, verifier wallet.VerifierF
 		case !ok:
 			return websocket.NewErrorPong(websocket.NewInvalidTransactionError()), nil
 		}
+		log.Println("TRANSACTION VERIFIED")
 		if err := save(p.Transaction); err != nil {
 			return nil, errors.Wrapf(err, "Failed to save transaction %s", p.Transaction)
 		}

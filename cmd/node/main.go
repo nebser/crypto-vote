@@ -157,7 +157,7 @@ func main() {
 	http.ListenAndServe(fmt.Sprintf("localhost:%d", 10000+*nodeID), nil)
 }
 
-func connectToNodes(nodes []string, wallet wallet.Wallet, router _websocket.Router, hub _websocket.Hub, signer wallet.Signer) error {
+func connectToNodes(nodes []string, wallet wallet.Wallet, router _websocket.Router, hub *_websocket.Hub, signer wallet.Signer) error {
 	for _, node := range nodes {
 		i, err := strconv.Atoi(node)
 		if err != nil {

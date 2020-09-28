@@ -124,7 +124,7 @@ func main() {
 	wg.Wait()
 }
 
-func startForgerChooser(db *bolt.DB, masterWallet wallet.Wallet, hub websocket.Hub) {
+func startForgerChooser(db *bolt.DB, masterWallet wallet.Wallet, hub *websocket.Hub) {
 	c := cron.New()
 	c.Schedule(
 		cron.Every(30*time.Second),
@@ -139,7 +139,7 @@ func startForgerChooser(db *bolt.DB, masterWallet wallet.Wallet, hub websocket.H
 	c.Start()
 }
 
-func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub, w wallet.Wallet) {
+func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub *websocket.Hub, w wallet.Wallet) {
 	defer wg.Done()
 	getTip := repository.GetTip(db)
 	getBlock := repository.GetBlock(db)
@@ -168,7 +168,7 @@ func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub, w walle
 	http.ListenAndServe(":10000", mux)
 }
 
-func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub websocket.Hub) {
+func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub *websocket.Hub) {
 	getTip := repository.GetTip(db)
 	getBlock := repository.GetBlock(db)
 	findBlock := blockchain.FindBlock(getTip, getBlock)

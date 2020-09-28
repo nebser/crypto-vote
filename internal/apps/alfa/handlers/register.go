@@ -15,7 +15,7 @@ type registerResponse struct {
 	Nodes []string `json:"nodes"`
 }
 
-func Register(hub websocket.Hub) websocket.Handler {
+func Register(hub *websocket.Hub) websocket.Handler {
 	return func(ping websocket.Ping, internalID string) (*websocket.Pong, error) {
 		var p registerPayload
 		if err := json.Unmarshal(ping.Body, &p); err != nil {

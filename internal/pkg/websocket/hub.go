@@ -17,6 +17,7 @@ type Hub struct {
 	pending      map[string]node
 	receivers    map[string]node
 	registerLock *sync.Mutex
+	lastReceiver int
 }
 
 type BroadcastFn func(Pong) int
@@ -25,11 +26,12 @@ type RegisteredNodesFn func() []string
 
 type RandomUnicastFn func(Pong) error
 
-func NewHub() Hub {
-	return Hub{
+func NewHub() *Hub {
+	return &Hub{
 		receivers:    make(map[string]node),
 		pending:      make(map[string]node),
 		registerLock: &sync.Mutex{},
+		lastReceiver: -1,
 	}
 }
 
@@ -92,10 +94,14 @@ func (h Hub) Multicast(message Pong, receiveCount int, blacklist []string) int {
 	return sentCount
 }
 
-func (h Hub) RandomUnicast(message Pong) error {
+func (h *Hub) RandomUnicast(message Pong) error {
 	h.registerLock.Lock()
 	defer h.registerLock.Unlock()
 	receiverNum := rand.Intn(len(h.receivers))
+	for receiverNum == h.lastReceiver {
+		receiverNum = rand.Intn(len(h.receivers))
+	}
+	h.lastReceiver = receiverNum
 	num := 0
 	for _, receiver := range h.receivers {
 		if num == receiverNum {

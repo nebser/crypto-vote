@@ -232,13 +232,10 @@ func IsStakeTransaction(alfaKeyHash []byte) IsStakeTransactionFn {
 		if len(transaction.Outputs) > 2 {
 			return false
 		}
-		alfaOutput, found := transaction.Outputs.Find(func(o Output) bool {
+		_, found := transaction.Outputs.Find(func(o Output) bool {
 			return bytes.Compare(o.PublicKeyHash, alfaKeyHash) == 0
 		})
 		if !found {
-			return false
-		}
-		if transaction.Outputs.Sum()/2 != alfaOutput.Value {
 			return false
 		}
 		return true

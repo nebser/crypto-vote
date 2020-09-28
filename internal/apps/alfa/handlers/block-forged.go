@@ -38,10 +38,12 @@ func BlockForged(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn, ver
 			return nil, errors.Wrap(err, "Failed to extract hashed public key")
 		}
 		if !verifyBlock(body.Block) || !body.Block.Body.Transactions[0].AreInputsFrom(hashedSender) {
+			log.Println("Didn't verify block")
 			return websocket.NewDisconnectPong(), nil
 		}
 		switch err := addNewBlock(body.Block); {
 		case errors.Is(err, blockchain.ErrInvalidBlock):
+			log.Println("Block is invalid")
 			return websocket.NewDisconnectPong(), nil
 		case err != nil:
 			return nil, errors.Wrap(err, "Failed to add new block to blockchain")

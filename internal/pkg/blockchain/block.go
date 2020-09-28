@@ -43,6 +43,7 @@ type VerifyBlockFn func(Block) bool
 func (b Block) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("-----BEGIN BLOCK-----\n")
+	builder.WriteString(fmt.Sprintf("Size: %d\n", b.Metadata.Size))
 	builder.WriteString(fmt.Sprintf("Hash: %x\n", b.Header.Hash))
 	t := time.Unix(b.Header.Timestamp, 0)
 	builder.WriteString("Timestamp: ")
@@ -70,6 +71,7 @@ func NewBlock(previousBlock []byte, transactions transaction.Transactions) (*Blo
 		Header: header,
 		Metadata: Metadata{
 			MagicNumber: magicNumber,
+			Size:        len(transactions),
 		},
 		Body: Body{
 			Transactions:      transactions,
