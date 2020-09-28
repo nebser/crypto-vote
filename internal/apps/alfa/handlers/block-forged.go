@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/nebser/crypto-vote/internal/pkg/blockchain"
+	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 	"github.com/nebser/crypto-vote/internal/pkg/websocket"
 	"github.com/pkg/errors"
@@ -16,7 +17,16 @@ type blockForgedBody struct {
 	Block  blockchain.Block `json:"block"`
 }
 
-func BlockForged(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn, verifyBlock blockchain.VerifyBlockFn, addNewBlock blockchain.AddNewBlockFn) websocket.Handler {
+func BlockForged(
+	getTip blockchain.GetTipFn,
+	getBlock blockchain.GetBlockFn,
+	verifyBlock blockchain.VerifyBlockFn,
+	addNewBlock blockchain.AddNewBlockFn,
+	isStakeTransaction transaction.IsStakeTransactionFn,
+	saveTransaction transaction.SaveTransaction,
+	newReturnStakeTransaction transaction.NewReturnStakeTransactionFn,
+	broadcast websocket.BroadcastFn,
+) websocket.Handler {
 	return func(ping websocket.Ping, _ string) (*websocket.Pong, error) {
 		var body blockForgedBody
 		if err := json.Unmarshal(ping.Body, &body); err != nil {
@@ -37,18 +47,49 @@ func BlockForged(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn, ver
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to extract hashed public key")
 		}
-		if !verifyBlock(body.Block) || !body.Block.Body.Transactions[0].AreInputsFrom(hashedSender) {
-			log.Println("Didn't verify block")
+		if len(body.Block.Body.Transactions) == 0 || !isStakeTransaction(body.Block.Body.Transactions[0]) || !body.Block.Body.Transactions[0].AreInputsFrom(hashedSender) {
+			return websocket.NewErrorPong(websocket.NewInvalidDataError(websocket.BlockForgedMessage.String())), nil
+		}
+		stakeTx := body.Block.Body.Transactions[0]
+		if !verifyBlock(body.Block) {
+			if err := saveTransaction(stakeTx); err != nil {
+				return nil, errors.Wrapf(err, "Failed to save stake transaction %s", stakeTx)
+			}
+			broadcast(websocket.Pong{
+				Message: websocket.TransactionReceivedMessage,
+				Body: websocket.SaveTransactionBody{
+					Transaction: stakeTx,
+				},
+			})
 			return websocket.NewDisconnectPong(), nil
+		}
+		returnStakeTx, err := newReturnStakeTransaction(stakeTx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create return stake transaction out of %s", stakeTx)
 		}
 		switch err := addNewBlock(body.Block); {
 		case errors.Is(err, blockchain.ErrInvalidBlock):
+			if err := saveTransaction(stakeTx); err != nil {
+				return nil, errors.Wrapf(err, "Failed to save stake transaction %s", stakeTx)
+			}
+			broadcast(websocket.Pong{
+				Message: websocket.TransactionReceivedMessage,
+				Body: websocket.SaveTransactionBody{
+					Transaction: stakeTx,
+				},
+			})
 			log.Println("Block is invalid")
 			return websocket.NewDisconnectPong(), nil
 		case err != nil:
 			return nil, errors.Wrap(err, "Failed to add new block to blockchain")
 		default:
 			log.Println("New block added")
+			broadcast(websocket.Pong{
+				Message: websocket.TransactionReceivedMessage,
+				Body: websocket.SaveTransactionBody{
+					Transaction: *returnStakeTx,
+				},
+			})
 			return websocket.NewNoActionPong(), nil
 		}
 	}

@@ -145,6 +145,7 @@ func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub *websocket.Hub, w wall
 	getBlock := repository.GetBlock(db)
 	findBlock := blockchain.FindBlock(getTip, getBlock)
 	authorizer := blockchain.BlockchainAuthorizer(findBlock)
+	isStakeTransaction := transaction.IsStakeTransaction(w.PublicKeyHash())
 	router := websocket.Router{
 		websocket.GetBlockchainHeightMessage: handlers.GetHeightHandler(getTip, getBlock),
 		websocket.GetMissingBlocksMessage:    handlers.GetMissingBlocks(getTip, getBlock),
@@ -158,9 +159,13 @@ func runSocketServer(wg *sync.WaitGroup, db *bolt.DB, hub *websocket.Hub, w wall
 					repository.GetTransactionUTXO(db),
 					wallet.VerifySignature,
 				),
-				transaction.IsStakeTransaction(w.PublicKeyHash()),
+				isStakeTransaction,
 			),
 			repository.AddNewBlock(db),
+			isStakeTransaction,
+			repository.SaveTransaction(db),
+			transaction.NewReturnStakeTransaction(w),
+			hub.Broadcast,
 		),
 	}
 	mux := http.NewServeMux()

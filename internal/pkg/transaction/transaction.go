@@ -27,6 +27,8 @@ type VerifyTransctionFn func(Transaction) bool
 
 type IsStakeTransactionFn func(Transaction) bool
 
+type NewReturnStakeTransactionFn func(Transaction) (*Transaction, error)
+
 const VoteValue = 10
 
 type Transaction struct {
@@ -135,6 +137,43 @@ func NewStakeTransaction(getUTXOs GetUTXOsByPublicKeyFn, signer wallet.Signer, s
 				Value:         sum - target,
 				PublicKeyHash: stakeCreator.PublicKeyHash(),
 			})
+		}
+		return NewTransaction(inputs, outputs)
+	}
+}
+
+func NewReturnStakeTransaction(w wallet.Wallet) NewReturnStakeTransactionFn {
+	return func(transaction Transaction) (*Transaction, error) {
+		pKeyHash := w.PublicKeyHash()
+		index, found := transaction.Outputs.FindIndex(func(element Output) bool {
+			return bytes.Compare(element.PublicKeyHash, pKeyHash) == 0
+		})
+		if !found {
+			return nil, errors.New("Failed to find output transaction")
+		}
+		signable := signable{
+			Recipient: transaction.Inputs[0].PublicKeyHash,
+			Sender:    pKeyHash,
+			Value:     transaction.Outputs[index].Value,
+		}
+		signature, err := wallet.Sign(signable, w.PrivateKey)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to sign return stake transaction")
+		}
+		inputs := Inputs{
+			{
+				PublicKeyHash: pKeyHash,
+				Signature:     signature,
+				TransactionID: transaction.ID,
+				Verifier:      w.PublicKey,
+				Vout:          index,
+			},
+		}
+		outputs := Outputs{
+			Output{
+				Value:         transaction.Outputs[index].Value,
+				PublicKeyHash: transaction.Inputs[0].PublicKeyHash,
+			},
 		}
 		return NewTransaction(inputs, outputs)
 	}
