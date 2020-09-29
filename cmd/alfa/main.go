@@ -109,7 +109,6 @@ func main() {
 		if err := alfa.Initialize(
 			*masterWallet,
 			wallets,
-			repository.InitBlockchain(db),
 			repository.AddBlock(db)); err != nil {
 			log.Fatal(err)
 		}
@@ -125,15 +124,27 @@ func main() {
 }
 
 func startForgerChooser(db *bolt.DB, masterWallet wallet.Wallet, hub *websocket.Hub) {
+	getTip := repository.GetTip(db)
+	getBlock := repository.GetBlock(db)
 	c := cron.New()
 	c.Schedule(
 		cron.Every(30*time.Second),
 		alfa.Runner(
 			hub.RegisteredNodes,
 			hub.RandomUnicast,
-			repository.GetTip(db),
-			repository.GetBlock(db),
-			wallet.NewSigner(masterWallet),
+			getTip,
+			getBlock,
+		),
+	)
+	c.Schedule(
+		cron.Every(time.Minute),
+		alfa.Cleaner(
+			repository.GetTransactions(db),
+			transaction.IsReturnStakeTransaction(masterWallet.PublicKeyHash()),
+			getTip,
+			getBlock,
+			repository.AddBlock(db),
+			hub.Broadcast,
 		),
 	)
 	c.Start()

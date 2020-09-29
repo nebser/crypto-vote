@@ -16,6 +16,7 @@ func ForgeBlock(
 	forgeBlock blockchain.ForgeBlockFn,
 	getTransactions transaction.GetTransactionsFn,
 	newStakeTransaction transaction.NewStakeTransactionFn,
+	isReturnStakeTransaction transaction.IsReturnStakeTransactionFn,
 	broadcast websocket.BroadcastFn,
 ) websocket.Handler {
 	return func(ping websocket.Ping, _ string) (*websocket.Pong, error) {
@@ -41,6 +42,9 @@ func ForgeBlock(
 			return nil, errors.Wrap(err, "Failed to retrieve transactions")
 		case len(transactions) == 0:
 			log.Println("No transactions to use for forging")
+			return websocket.NewNoActionPong(), nil
+		case len(transactions) == 1 && isReturnStakeTransaction(transactions[0]):
+			log.Println("Only return stake transaction found")
 			return websocket.NewNoActionPong(), nil
 		}
 		block, err := forgeBlock(append(transaction.Transactions{*stake}, transactions...))

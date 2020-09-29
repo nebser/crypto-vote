@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -26,6 +27,8 @@ type NewStakeTransactionFn func() (*Transaction, error)
 type VerifyTransctionFn func(Transaction) bool
 
 type IsStakeTransactionFn func(Transaction) bool
+
+type IsReturnStakeTransactionFn func(Transaction) bool
 
 type NewReturnStakeTransactionFn func(Transaction) (*Transaction, error)
 
@@ -179,7 +182,7 @@ func NewReturnStakeTransaction(w wallet.Wallet) NewReturnStakeTransactionFn {
 	}
 }
 
-func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transaction, error) {
+func NewBaseTransaction(creator wallet.Wallet, recipientAddress string, value int) (*Transaction, error) {
 	recipientKeyHash := wallet.ExtractPublicKeyHash(recipientAddress)
 	signable := signable{
 		Recipient: recipientKeyHash,
@@ -192,7 +195,7 @@ func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transa
 	}
 	outputs := Outputs{
 		{
-			Value:         VoteValue,
+			Value:         value,
 			PublicKeyHash: recipientKeyHash,
 		},
 	}
@@ -213,10 +216,6 @@ func NewBaseTransaction(creator wallet.Wallet, recipientAddress string) (*Transa
 		Inputs:  inputs,
 		Outputs: outputs,
 	}, nil
-}
-
-func (t Transaction) IsBase() bool {
-	return len(t.Inputs) == 1 && len(t.Outputs) == 1 && t.Inputs[0].Vout == -1
 }
 
 func (t Transaction) UTXOs() (utxos []UTXO) {
@@ -269,14 +268,23 @@ func VerifyTransactions(getTransactionUTXO GetTransactionUTXO, verifier wallet.V
 func IsStakeTransaction(alfaKeyHash []byte) IsStakeTransactionFn {
 	return func(transaction Transaction) bool {
 		if len(transaction.Outputs) > 2 {
+			log.Printf("Len of outputs ids %d", len(transaction.Outputs))
 			return false
 		}
 		_, found := transaction.Outputs.Find(func(o Output) bool {
 			return bytes.Compare(o.PublicKeyHash, alfaKeyHash) == 0
 		})
 		if !found {
+			log.Println("No public key output found")
 			return false
 		}
+		log.Println("GOOD STAKE TX")
 		return true
+	}
+}
+
+func IsReturnStakeTransaction(alfaKeyHash []byte) IsReturnStakeTransactionFn {
+	return func(transaction Transaction) bool {
+		return len(transaction.Inputs) == 1 && bytes.Compare(transaction.Inputs[0].PublicKeyHash, alfaKeyHash) == 0
 	}
 }

@@ -16,7 +16,7 @@ type blockForgedBody struct {
 	Block  blockchain.Block `json:"block"`
 }
 
-func BlockForged(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn, verifyBlock blockchain.VerifyBlockFn, addNewBlock blockchain.AddNewBlockFn) websocket.Handler {
+func BlockForged(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn, verifyBlock blockchain.VerifyBlockFn, isReturnStakeBlock blockchain.IsReturnStakeBlockFn, addNewBlock blockchain.AddNewBlockFn) websocket.Handler {
 	return func(ping websocket.Ping, _ string) (*websocket.Pong, error) {
 		var body blockForgedBody
 		if err := json.Unmarshal(ping.Body, &body); err != nil {
@@ -37,11 +37,13 @@ func BlockForged(getTip blockchain.GetTipFn, getBlock blockchain.GetBlockFn, ver
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to extract hashed public key")
 		}
-		if !verifyBlock(body.Block) || !body.Block.Body.Transactions[0].AreInputsFrom(hashedSender) {
+		if !isReturnStakeBlock(body.Block, hashedSender) && !verifyBlock(body.Block, hashedSender) {
+			log.Println("Block is not verified 2")
 			return websocket.NewDisconnectPong(), nil
 		}
 		switch err := addNewBlock(body.Block); {
 		case errors.Is(err, blockchain.ErrInvalidBlock):
+			log.Println("Block is invalid")
 			return websocket.NewDisconnectPong(), nil
 		case err != nil:
 			return nil, errors.Wrap(err, "Failed to add new block to blockchain")

@@ -38,7 +38,9 @@ type Block struct {
 
 type Blocks []Block
 
-type VerifyBlockFn func(Block) bool
+type VerifyBlockFn func(block Block, hashedSender []byte) bool
+
+type IsReturnStakeBlockFn func(block Block, sender []byte) bool
 
 func (b Block) String() string {
 	builder := strings.Builder{}
@@ -106,13 +108,39 @@ func intToHex(num int64) ([]byte, error) {
 }
 
 func VerfiyBlock(verifyTransaction transaction.VerifyTransctionFn, isStakeTransaction transaction.IsStakeTransactionFn) VerifyBlockFn {
-	return func(block Block) bool {
+	return func(block Block, hashedSender []byte) bool {
 		for _, transaction := range block.Body.Transactions {
 			if !verifyTransaction(transaction) {
 				return false
 			}
 		}
-		if len(block.Body.Transactions) == 0 || !isStakeTransaction(block.Body.Transactions[0]) {
+		if len(block.Body.Transactions) == 0 {
+			return false
+		}
+		if !isStakeTransaction(block.Body.Transactions[0]) {
+			return false
+		}
+		if !block.Body.Transactions[0].AreInputsFrom(hashedSender) {
+			return false
+		}
+		transactionHash := block.Body.Transactions.Hash()
+		blockHash, err := createHash(block.Header.Prev, transactionHash, block.Header.Timestamp)
+		if err != nil {
+			return false
+		}
+		return bytes.Compare(block.Header.Hash, blockHash) == 0
+	}
+}
+
+func IsReturnStakeBlock(verifyTransaction transaction.VerifyTransctionFn, alfaKeyHash []byte) IsReturnStakeBlockFn {
+	return func(block Block, sender []byte) bool {
+		if len(block.Body.Transactions) != 1 || !transaction.IsReturnStakeTransaction(alfaKeyHash)(block.Body.Transactions[0]) {
+			return false
+		}
+		if bytes.Compare(alfaKeyHash, sender) != 0 {
+			return false
+		}
+		if !verifyTransaction(block.Body.Transactions[0]) {
 			return false
 		}
 		transactionHash := block.Body.Transactions.Hash()

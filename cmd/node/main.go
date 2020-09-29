@@ -102,6 +102,7 @@ func main() {
 	}
 	hub := _websocket.NewHub()
 	signer := wallet.NewSigner(*masterWallet)
+	verifyTransactions := transaction.VerifyTransactions(repository.GetTransactionUTXO(db), wallet.VerifySignature)
 	router := _websocket.Router{
 		_websocket.RegisterMessage: handlers.Register(hub).
 			Authorized(
@@ -127,6 +128,7 @@ func main() {
 				*masterWallet,
 				hashedAlfaPKey,
 			),
+			transaction.IsReturnStakeTransaction(hashedAlfaPKey),
 			hub.Broadcast,
 		).
 			Authorized(
@@ -138,13 +140,8 @@ func main() {
 		_websocket.BlockForgedMessage: handlers.BlockForged(
 			repository.GetTip(db),
 			repository.GetBlock(db),
-			blockchain.VerfiyBlock(
-				transaction.VerifyTransactions(
-					repository.GetTransactionUTXO(db),
-					wallet.VerifySignature,
-				),
-				transaction.IsStakeTransaction(hashedAlfaPKey),
-			),
+			blockchain.VerfiyBlock(verifyTransactions, transaction.IsStakeTransaction(hashedAlfaPKey)),
+			blockchain.IsReturnStakeBlock(verifyTransactions, hashedAlfaPKey),
 			repository.AddNewBlock(db),
 		),
 	}

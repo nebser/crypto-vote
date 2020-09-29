@@ -47,11 +47,11 @@ func BlockForged(
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to extract hashed public key")
 		}
-		if len(body.Block.Body.Transactions) == 0 || !isStakeTransaction(body.Block.Body.Transactions[0]) || !body.Block.Body.Transactions[0].AreInputsFrom(hashedSender) {
+		if len(body.Block.Body.Transactions) == 0 || !isStakeTransaction(body.Block.Body.Transactions[0]) {
 			return websocket.NewErrorPong(websocket.NewInvalidDataError(websocket.BlockForgedMessage.String())), nil
 		}
 		stakeTx := body.Block.Body.Transactions[0]
-		if !verifyBlock(body.Block) {
+		if !verifyBlock(body.Block, hashedSender) {
 			if err := saveTransaction(stakeTx); err != nil {
 				return nil, errors.Wrapf(err, "Failed to save stake transaction %s", stakeTx)
 			}
@@ -84,6 +84,9 @@ func BlockForged(
 			return nil, errors.Wrap(err, "Failed to add new block to blockchain")
 		default:
 			log.Println("New block added")
+			if err := saveTransaction(*returnStakeTx); err != nil {
+				return nil, errors.Wrapf(err, "Failed to save stake transaction %s", stakeTx)
+			}
 			broadcast(websocket.Pong{
 				Message: websocket.TransactionReceivedMessage,
 				Body: websocket.SaveTransactionBody{
