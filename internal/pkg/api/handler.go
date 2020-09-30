@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -33,6 +34,7 @@ func NewHandleFunc(h Handler) http.HandlerFunc {
 		}
 		result, err := h(request)
 		if err != nil {
+			log.Printf("Unexpected error occurred %s", err)
 			res := InternalServerErrorResponse()
 			w.WriteHeader(res.Status)
 			json.NewEncoder(w).Encode(res.Body)

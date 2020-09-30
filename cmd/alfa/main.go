@@ -100,16 +100,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load node key files directory %s", err)
 	}
-	wallets, err := wallet.ImportMultiple(append(clientKeyFiles, nodeKeyFiles...))
+	clientWallets, err := wallet.ImportMultiple(clientKeyFiles)
 	if err != nil {
-		log.Fatalf("Failed to wallets %s", err)
+		log.Fatalf("Failed to import client wallets %s", err)
+	}
+	nodeWallets, err := wallet.ImportMultiple(nodeKeyFiles)
+	if err != nil {
+		log.Fatalf("Failed to import node wallets %s", err)
 	}
 
 	if *newOption {
 		if err := alfa.Initialize(
 			*masterWallet,
-			wallets,
-			repository.AddBlock(db)); err != nil {
+			nodeWallets,
+			clientWallets,
+			repository.AddBlock(db),
+			repository.SaveParty(db)); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -199,6 +205,13 @@ func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub *websocket.Hub) {
 				),
 			),
 		).Methods("POST")
+	httpRouter.HandleFunc("/parties",
+		api.NewHandleFunc(
+			handlers.GetParties(
+				repository.GetParties(db),
+			),
+		),
+	).Methods("GET")
 	serverMux := http.NewServeMux()
 	serverMux.Handle("/", httpRouter)
 	http.ListenAndServe(":8000", serverMux)

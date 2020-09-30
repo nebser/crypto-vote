@@ -1,8 +1,10 @@
 package alfa
 
 import (
+	"fmt"
 	"log"
 
+	"github.com/nebser/crypto-vote/internal/pkg/party"
 	"github.com/nebser/crypto-vote/internal/pkg/transaction"
 	"github.com/nebser/crypto-vote/internal/pkg/websocket"
 
@@ -11,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func Initialize(masterWallet wallet.Wallet, clientWallets wallet.Wallets, addBlock blockchain.AddBlockFn) error {
+func Initialize(masterWallet wallet.Wallet, nodeWallets, clientWallets wallet.Wallets, addBlock blockchain.AddBlockFn, saveParty party.SavePartyFn) error {
 	genesisTransaction, err := transaction.NewBaseTransaction(masterWallet, masterWallet.Address, 100*transaction.VoteValue)
 	if err != nil {
 		return errors.Wrap(err, "Failed to generate genesis transaction")
@@ -25,12 +27,21 @@ func Initialize(masterWallet wallet.Wallet, clientWallets wallet.Wallets, addBlo
 		errors.Wrap(err, "Failed to initialize blockchain")
 	}
 	baseTransactions := transaction.Transactions{}
-	for _, w := range clientWallets {
+	for _, w := range append(nodeWallets, clientWallets...) {
 		t, err := transaction.NewBaseTransaction(masterWallet, w.Address, transaction.VoteValue)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create transaction to wallet %#v", w)
 		}
 		baseTransactions = append(baseTransactions, *t)
+	}
+	for i, wallet := range nodeWallets {
+		p := party.Party{
+			Name:    fmt.Sprintf("Party Number: %d", i),
+			Address: wallet.Address,
+		}
+		if err := saveParty(p); err != nil {
+			return errors.Wrapf(err, "Failed to save party %#v", p)
+		}
 	}
 	block, err := blockchain.NewBlock(tip, baseTransactions)
 	if err != nil {
