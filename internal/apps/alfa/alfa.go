@@ -102,12 +102,12 @@ func Cleaner(
 		if err != nil {
 			return errors.Wrap(err, "Failed to retrieve transactions")
 		}
-		log.Printf("Found transactions %d", len(txs))
-		log.Printf("Found transactions %s", txs)
 		if len(txs) != 1 || !isReturnStakeTransaction(txs[0]) {
 			log.Println("Cleaner unnecessary")
 			return nil
 		}
+		log.Printf("Found transactions %d", len(txs))
+		log.Printf("Found transactions %s", txs)
 		height, err := blockchain.GetHeight(getTip, getBlock)
 		if err != nil {
 			return errors.Wrap(err, "Failed to retrieve blockchain height")

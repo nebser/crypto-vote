@@ -70,7 +70,7 @@ func BlockForged(
 		switch err := addNewBlock(body.Block); {
 		case errors.Is(err, blockchain.ErrInvalidBlock):
 			if err := saveTransaction(stakeTx); err != nil {
-				return nil, errors.Wrapf(err, "Failed to save stake transaction %s", stakeTx)
+				return nil, errors.Wrapf(err, "Failed to save invalid stake transaction %s", stakeTx)
 			}
 			broadcast(websocket.Pong{
 				Message: websocket.TransactionReceivedMessage,
@@ -85,7 +85,7 @@ func BlockForged(
 		default:
 			log.Println("New block added")
 			if err := saveTransaction(*returnStakeTx); err != nil {
-				return nil, errors.Wrapf(err, "Failed to save stake transaction %s", stakeTx)
+				return nil, errors.Wrapf(err, "Failed to save return stake transaction %s", stakeTx)
 			}
 			broadcast(websocket.Pong{
 				Message: websocket.TransactionReceivedMessage,

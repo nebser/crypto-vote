@@ -11,7 +11,9 @@ import (
 	"net/http"
 
 	"github.com/nebser/crypto-vote/internal/pkg/keyfiles"
+	"github.com/nebser/crypto-vote/internal/pkg/party"
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
+	"github.com/pkg/errors"
 )
 
 type body struct {
@@ -86,4 +88,24 @@ func main() {
 		panic(err)
 	}
 	log.Printf("Received response %s", result)
+	parties, err := listParties()
+	if err != nil {
+		log.Fatalf("Failed to list parties %s", err)
+	}
+	log.Printf("Parties %#v", parties)
+
+}
+
+func listParties() (party.Parties, error) {
+	response, err := http.Get("http://localhost:8000/parties")
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to retrieve parties")
+	}
+	defer response.Body.Close()
+	raw, err := ioutil.ReadAll(response.Body)
+	var parties party.Parties
+	if err := json.Unmarshal(raw, &parties); err != nil {
+		return nil, errors.Wrapf(err, "Failed to unmarshal response %s", raw)
+	}
+	return parties, nil
 }
