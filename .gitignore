@@ -1,1 +1,10 @@
 *.json
+db*
+alfa*
+client-node
+clients/
+election
+key-generator
+nodes/
+poller
+voter
