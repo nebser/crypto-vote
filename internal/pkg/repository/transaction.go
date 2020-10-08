@@ -3,7 +3,6 @@ package repository
 import (
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"sort"
 
 	"github.com/boltdb/bolt"
@@ -172,7 +171,6 @@ func saveTransaction(tx *bolt.Tx, transaction transaction.Transaction) error {
 	if err := b.Put(transaction.ID, raw); err != nil {
 		return errors.Wrapf(err, "Failed to save transaction %s", transaction)
 	}
-	log.Println("ALL GOOD MOOD")
 	return nil
 }
 
