@@ -209,6 +209,7 @@ func runAPIServer(wg *sync.WaitGroup, db *bolt.DB, hub *websocket.Hub) {
 		api.NewHandleFunc(
 			handlers.GetParties(
 				repository.GetParties(db),
+				repository.GetUTXOsByPublicKey(db),
 			),
 		),
 	).Methods("GET")

@@ -4,6 +4,7 @@ main:
 	go build -o key-generator cmd/key-generator/main.go
 	go build -o voter cmd/voter/main.go
 	go build -o election cmd/election/main.go
+	go build -o poller cmd/poller/main.go
 
 blockchain:
 	go build -o alfa-node cmd/alfa/main.go 
