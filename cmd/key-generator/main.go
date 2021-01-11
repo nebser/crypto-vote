@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/nebser/crypto-vote/internal/pkg/wallet"
 )
@@ -32,6 +33,24 @@ func main() {
 	numOfClients := flag.Int("clientsNumber", 50, "Number of client key pairs to generate")
 	numOfNodes := flag.Int("nodesNumber", 5, "Number of node key pairs to generate")
 	flag.Parse()
+
+	switch _, err := os.Stat(*clientKeysDir); {
+	case os.IsNotExist(err):
+		if err := os.Mkdir(*clientKeysDir, os.ModePerm); err != nil {
+			log.Fatal(err)
+		}
+	case err != nil:
+		log.Fatal(err)
+	}
+
+	switch _, err := os.Stat(*nodesKeysDir); {
+	case os.IsNotExist(err):
+		if err := os.Mkdir(*nodesKeysDir, os.ModePerm); err != nil {
+			log.Fatal(err)
+		}
+	case err != nil:
+		log.Fatal(err)
+	}
 
 	if err := exportMultiple(*clientKeysDir, "c", 0, *numOfClients); err != nil {
 		log.Fatalf("Failed to generate keys for clients %s", err)
